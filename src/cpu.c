@@ -128,9 +128,9 @@ static void cpu_instruction_exec(CPU* cpu, uint8_t* curr_cycles,
             /* Cycle already counted in addressing mode resolution */
             break;
         case STA: case STX: case STY:
-            if (opcode == STA)  memory_write(cpu->mem, ea, cpu->a);
-            if (opcode == STX)  memory_write(cpu->mem, ea, cpu->x);
-            if (opcode == STY)  memory_write(cpu->mem, ea, cpu->y);
+            src = (opcode == STA) ? &cpu->a : 
+                  (opcode == STX) ? &cpu->x : &cpu->y;
+            memory_write(cpu->mem, ea, *src);
             /* Cycle already counted in addressing mode resolution */
             break;
         case TAX: case TAY: case TSX: case TXA: case TXS: case TYA:
