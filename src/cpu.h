@@ -2,7 +2,6 @@
 #define CPU_H_
 
 #include "memory.h"
-#include "alu.h"
 
 #define FLAG_C (1 << 0)  // Carry
 #define FLAG_Z (1 << 1)  // Zero
