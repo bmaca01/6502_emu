@@ -154,6 +154,32 @@ static void cpu_instruction_exec(CPU* cpu, uint8_t* curr_cycles,
             /* Transfer instructions are implied mode: +1 for internal operation */
             (*curr_cycles)++;
             break;
+        case PHA: case PHP:
+            src = (opcode == PHA) ? &cpu->a : &cpu->status;
+
+            if (opcode == PHP)
+                *src |= (FLAG_B | FLAG_U);
+
+            memory_write(cpu->mem, (0x0100 | (--cpu->sp)), *src);
+            (*curr_cycles)++;
+            (*curr_cycles)++;
+            break;
+        case PLA: case PLP:
+            dst = (opcode == PLA) ? &cpu->a : &cpu->status;
+            val = memory_read(cpu->mem, (0x0100 | cpu->sp));
+            cpu->sp++;
+
+            *dst = val;
+
+            if (opcode == PLA){
+                if (*dst == 0)              cpu->status |= FLAG_Z;
+                if ((*dst & 0x80)>>7)       cpu->status |= FLAG_N;
+            }
+
+            (*curr_cycles)++;
+            (*curr_cycles)++;
+            (*curr_cycles)++;
+            break;
         case NOP:
             (*curr_cycles)++;
             break;

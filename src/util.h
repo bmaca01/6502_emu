@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include "opcodes.h"
+#include "addressing.h"
 
 struct Decoded {
     uint8_t aaa;
@@ -17,5 +19,6 @@ typedef struct Decoded decoded_t;
 uint8_t random_byte();
 char* byte_to_bits(uint8_t b);
 decoded_t decode_byte(uint8_t b);
+uint8_t encode_op(opcode_t op, addr_mode_t am);
 
 #endif

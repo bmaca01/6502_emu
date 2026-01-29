@@ -7,7 +7,6 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include "util.h"
 enum opcode {
     /* Transfer */
     LDA,LDX,LDY,STA,STX,STY,TAX,TAY,TSX,TXA,TXS,TYA,

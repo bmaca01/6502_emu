@@ -1,4 +1,5 @@
 #include "addressing.h"
+#include "util.h"
 
 addr_mode_t fetch_addr_mode(uint8_t b) {
     decoded_t decoded = decode_byte(b);

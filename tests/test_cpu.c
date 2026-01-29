@@ -1,4 +1,5 @@
 #include "cpu.h"
+#include "util.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -1029,6 +1030,106 @@ TEST(test_sta_abs_x_page_cross) {
     cpu_destroy(cpu);
 }
 
+/* ======================= Stack push =============================== */
+TEST(test_pha) {
+    CPU* cpu = setup_cpu();
+    Memory* mem = cpu_get_memory(cpu);
+    cpu_set_a(cpu, 0x42);
+    memory_write(mem, 0x0200, encode_op(PHA, IMPL));
+    uint8_t _sp = cpu_get_sp(cpu);
+
+    uint8_t cycles = cpu_step(cpu);
+
+    assert(_sp > cpu_get_sp(cpu));
+    assert(_sp - 1 == cpu_get_sp(cpu));
+    assert(memory_read(mem, (0x0100 | cpu_get_sp(cpu))) == 0x42);
+    assert(cycles == 3);
+    assert_pc(cpu, 0x0201);
+
+    cpu_destroy(cpu);
+}
+
+TEST(test_php) {
+    CPU* cpu = setup_cpu();
+    Memory* mem = cpu_get_memory(cpu);
+    //cpu_set_a(cpu, 0x42);
+    memory_write(mem, 0x0200, encode_op(PHP, IMPL));
+    uint8_t _sp = cpu_get_sp(cpu);
+    uint8_t _p = cpu_get_status(cpu);
+
+    uint8_t cycles = cpu_step(cpu);
+
+    assert(_sp > cpu_get_sp(cpu));
+    assert(_sp - 1 == cpu_get_sp(cpu));
+    assert(memory_read(mem, (0x0100 | cpu_get_sp(cpu))) == (_p | FLAG_B | FLAG_U));
+    assert(cycles == 3);
+    assert_pc(cpu, 0x0201);
+
+    cpu_destroy(cpu);
+}
+
+TEST(test_pla) {
+    CPU* cpu = setup_cpu();
+    Memory* mem = cpu_get_memory(cpu);
+
+    /** simple program
+     *  LDA #$AB
+     *  PHA
+     *  LDA #$00
+     *  PLA ; A should be AB
+     */
+    memory_write(mem, 0x0200, encode_op(LDA, IMM));
+    memory_write(mem, 0x0201,                0xAB);
+    memory_write(mem, 0x0202, encode_op(PHA, IMPL));
+    memory_write(mem, 0x0203, encode_op(LDA, IMM));
+    memory_write(mem, 0x0204,                0x00);
+    memory_write(mem, 0x0205, encode_op(PLA, IMPL));
+
+    uint8_t _sp_old = cpu_get_sp(cpu);
+    cpu_step(cpu);
+    cpu_step(cpu);
+
+    assert(_sp_old-1 == cpu_get_sp(cpu));
+
+    cpu_step(cpu);
+    assert(cpu_get_a(cpu) == 0);
+
+    uint8_t pull_cycles = cpu_step(cpu);
+    assert(cpu_get_a(cpu) == 0xAB);
+    assert(_sp_old == cpu_get_sp(cpu));
+    assert(pull_cycles == 4);
+
+    cpu_destroy(cpu);
+}
+
+TEST(test_plp) {
+    CPU* cpu = setup_cpu();
+    Memory* mem = cpu_get_memory(cpu);
+
+    memory_write(mem, 0x0200, encode_op(PHP, IMPL));
+    memory_write(mem, 0x0201, encode_op(LDA, IMM));
+    memory_write(mem, 0x0202,                0xF0); // Should set N
+    memory_write(mem, 0x0203, encode_op(PLP, IMPL));
+
+    uint8_t _sp_old = cpu_get_sp(cpu);
+    uint8_t _p_old = cpu_get_status(cpu);
+
+    cpu_step(cpu);
+    cpu_step(cpu);
+    assert(_sp_old - 1 == cpu_get_sp(cpu));
+    assert(cpu_get_status(cpu) != _p_old);
+    assert(cpu_get_status(cpu) & FLAG_N);
+
+    uint8_t pull_cycles = cpu_step(cpu);
+    assert(!(cpu_get_status(cpu) & FLAG_N));
+    assert(cpu_get_status(cpu) == (_p_old | FLAG_B));   // Pushing sets bit 4
+    assert(_sp_old == cpu_get_sp(cpu));
+    assert(pull_cycles == 4);
+
+    cpu_destroy(cpu);
+}
+
+
 int main(void) {
     printf("\n=== CPU Module Tests ===\n\n");
 
@@ -1110,6 +1211,12 @@ int main(void) {
     RUN_TEST(test_ldx_abs_y_page_cross);
     RUN_TEST(test_ldy_abs_x_page_cross);
     RUN_TEST(test_sta_abs_x_page_cross);
+
+    printf("\n--- Stack tests ---\n");
+    RUN_TEST(test_pha);
+    RUN_TEST(test_php);
+    RUN_TEST(test_pla);
+    RUN_TEST(test_plp);
 
     printf("\nAll CPU tests passed!\n\n");
     return 0;

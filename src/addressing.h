@@ -3,7 +3,6 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include "util.h"
 enum addr_mode {
     /* Only need to lookahead one byte */
     IMM, ABS, ZPG, 

@@ -1,4 +1,5 @@
 #include "opcodes.h"
+#include "util.h"
 /**
  * See https://www.masswerk.at/6502/6502_instruction_set.html#layout
  * Could this have been just a simple table? maybe.

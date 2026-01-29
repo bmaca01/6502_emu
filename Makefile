@@ -13,8 +13,8 @@ BUILD_DIR = build
 SRCS = $(wildcard $(SRC_DIR)/*.c)
 OBJS = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.o,$(SRCS))
 
-# Exclude main.o for test builds (tests have their own main)
-LIB_OBJS = $(filter-out $(BUILD_DIR)/main.o,$(OBJS))
+# Exclude main.o and scrap.o for test builds (tests have their own main)
+LIB_OBJS = $(filter-out $(BUILD_DIR)/main.o $(BUILD_DIR)/scrap.o,$(OBJS))
 
 # Test files
 TEST_SRCS = $(wildcard $(TEST_DIR)/*.c)
