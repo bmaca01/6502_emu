@@ -6,7 +6,7 @@
 /* Only focusing on legal instructions */
 static const uint8_t opcode_to_byte[ADDR_CNT][OP_CNT] = {
     [IMM]     = { [LDY] = 0xA0, [CPY] = 0xC0, [CPX] = 0xE0, 
-                  [LDY] = 0xA2, 
+                  [LDX] = 0xA2, 
                   [ORA] = 0x09, [AND] = 0x29, [EOR] = 0x49, [ADC] = 0x69, [LDA] = 0xA9, [CMP] = 0xC9, [SBC] = 0xE9 },
     [ABS]     = { [JSR] = 0x20, 
                   [BIT] = 0x2C, [JMP] = 0x4C, [STY] = 0x8C, [LDY] = 0xAC, [CPY] = 0xCC, [CPX] = 0xEC, 

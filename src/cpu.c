@@ -53,7 +53,7 @@ void cpu_destroy(CPU* cpu) {
 
 void cpu_reset(CPU* cpu) {
     if (!cpu) return;
-    cpu->sp = 0xFD;
+    cpu->sp = 0xFF;
     cpu->status = FLAG_U | FLAG_I;
 
     /* Read from reset vector */
@@ -102,17 +102,9 @@ uint8_t cpu_step(CPU* cpu) {
 static void cpu_instruction_exec(CPU* cpu, uint8_t* curr_cycles,
                                  opcode_t opcode, addr_mode_t a_mode,
                                  uint16_t operand, uint16_t ea) {
-    /**
-     * At this point, (hopefully) we know:
-     * - opcode
-     * - addressing mode
-     * - operand
-     * - effective address
-     * which means we can pass this info to execute an instruction..?
-     */
-
     uint8_t *src, *dst, val;
     switch (opcode) {
+        /* ==== TRANSFER ==== */
         case LDA: case LDX: case LDY:
             if (a_mode == IMM)      val = operand;
             else                    val = memory_read(cpu->mem, ea);
@@ -154,6 +146,8 @@ static void cpu_instruction_exec(CPU* cpu, uint8_t* curr_cycles,
             /* Transfer instructions are implied mode: +1 for internal operation */
             (*curr_cycles)++;
             break;
+
+        /* ==== STACK ==== */
         case PHA: case PHP:
             src = (opcode == PHA) ? &cpu->a : &cpu->status;
 
@@ -180,11 +174,105 @@ static void cpu_instruction_exec(CPU* cpu, uint8_t* curr_cycles,
             (*curr_cycles)++;
             (*curr_cycles)++;
             break;
+
+        /* ==== INC / DEC ==== */
+        case DEX: case DEY:
+            dst = (opcode == DEX) ? &cpu->x : &cpu->y;
+            (*dst)--;
+            if (*dst == 0)              cpu->status |= FLAG_Z;
+            if ((*dst & 0x80)>>7)       cpu->status |= FLAG_N;
+            (*curr_cycles)++;
+            break;
+        case INX: case INY:
+            dst = (opcode == INX) ? &cpu->x : &cpu->y;
+            (*dst)++;
+            if (*dst == 0)              cpu->status |= FLAG_Z;
+            if ((*dst & 0x80)>>7)       cpu->status |= FLAG_N;
+            (*curr_cycles)++;
+            break;
+        case INC: case DEC:
+            val = (opcode == INC) ? memory_read(cpu->mem, ea) + 1 : memory_read(cpu->mem, ea) - 1;
+            (*curr_cycles)++;
+
+            memory_write(cpu->mem, ea, val);
+            if (val == 0)              cpu->status |= FLAG_Z;
+            if ((val & 0x80)>>7)       cpu->status |= FLAG_N;
+            (*curr_cycles)++;
+            break;
+
+        /* ==== ARITHMETIC ==== */
+        case ADC: case SBC: {
+            dst = &cpu->a;
+            if (a_mode == IMM)      val = operand;
+            else                    val = memory_read(cpu->mem, ea);
+            val = (opcode == ADC) ? val : ~val;
+
+            uint8_t a_old = cpu->a;
+            uint8_t old_sign = ((a_old) & 0x80)>>7;
+            uint8_t new_sign = ((a_old + val) & 0x80)>>7;
+            bool same_sign = (a_old & 0x80) == (val & 0x80);
+
+            *dst += val + (cpu->status & FLAG_C);
+
+            if (cpu->a < a_old)                         cpu->status |= FLAG_C;
+            else if (opcode == SBC && cpu->a > a_old)   cpu->status &= ~FLAG_C; // Clear carry flag if negative overflow happens
+            if (same_sign && (old_sign != new_sign))    cpu->status |= FLAG_V;
+            if (*dst == 0)                              cpu->status |= FLAG_Z;
+            if ((*dst & 0x80)>>7)                       cpu->status |= FLAG_N;
+            break;
+        }
+
+        /* ==== LOGIC ==== */
+        case AND: case EOR: case ORA:
+            dst = &cpu->a;
+            if (a_mode == IMM)      val = operand;
+            else                    val = memory_read(cpu->mem, ea);
+            *dst = (opcode == AND) ? cpu->a & val :
+                   (opcode == EOR) ? cpu->a ^ val :
+                                     cpu->a | val;
+
+            if (*dst == 0)                              cpu->status |= FLAG_Z;
+            if ((*dst & 0x80)>>7)                       cpu->status |= FLAG_N;
+            break;
+
+        /* ==== SHIFT ==== */
+        case ASL: case ROL: case LSR: case ROR: {
+            uint8_t carry_set = cpu->status & FLAG_C;
+            bool will_set_carry = false;
+            if (a_mode == ACC)  val = cpu->a;
+            else                val = memory_read(cpu->mem, ea);
+            uint8_t val_old = val;
+
+            if (opcode & 1) {   /* LSR or ROR */
+                val >>= 1;
+                if (opcode == ROR)  val |= (carry_set)<<7;
+                if (val_old & 1)     will_set_carry = true;
+            } else {            /* ASL or ROL */
+                val <<= 1;
+                if (opcode == ROL)  val |= (carry_set);
+                if (val_old & 0x80)     will_set_carry = true;
+            }
+
+            if (a_mode == ACC)  cpu->a = val;
+            else {
+                memory_write(cpu->mem, ea, val);
+                (*curr_cycles)++;
+            }
+
+            if (carry_set)          cpu->status &= ~FLAG_C;
+            if (will_set_carry)     cpu->status |= FLAG_C;
+            if (val == 0)           cpu->status |= FLAG_Z;
+            if ((val & 0x80)>>7)    cpu->status |= FLAG_N;
+            (*curr_cycles)++;
+            break;
+        }
+
+        /* ==== NOP ==== */
         case NOP:
             (*curr_cycles)++;
             break;
         default:
-            printf("[DEBUG] cpu.c -> cpu_instruction_exec(): invalid opcode\n");
+            printf("\n[DEBUG:cpu.c] cpu_instruction_exec(): invalid opcode: 0x%02X\n", opcode);
             exit(1);        // TODO: clean up function before exit?
             break;
     }
