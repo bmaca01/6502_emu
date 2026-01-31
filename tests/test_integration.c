@@ -19,15 +19,6 @@ static uint16_t run_program(CPU* cpu, int max_instructions) {
     return total_cycles;
 }
 
-/* Run until PC reaches target or max instructions */
-static uint16_t run_until_pc(CPU* cpu, uint16_t target_pc, int max) {
-    uint16_t cycles = 0;
-    for (int i = 0; i < max && cpu_get_pc(cpu) != target_pc; i++) {
-        cycles += cpu_step(cpu);
-    }
-    return cycles;
-}
-
 /* ===================== Loop Tests ===================== */
 
 /*
@@ -456,6 +447,345 @@ TEST(test_indirect_indexed_copy) {
     cpu_destroy(cpu);
 }
 
+/* ===================== Stress Tests ===================== */
+
+/*
+ * Bubble Sort - Sort 8 bytes in ascending order
+ *
+ * This is a ~60 instruction program that exercises:
+ * - Nested loops
+ * - Indexed addressing (ZPG,X)
+ * - Compare and branch
+ * - Memory read/write
+ * - Register transfers
+ *
+ * Data at $50-$57 (8 bytes to sort)
+ * Uses $40 as swap flag, $41 as outer loop counter
+ *
+ *          LDA #$07        ; outer loop: 7 passes max
+ *          STA $41
+ * outer:   LDA #$00        ; clear swap flag
+ *          STA $40
+ *          LDX #$00        ; inner loop index
+ * inner:   LDA $50,X       ; load current element
+ *          CMP $51,X       ; compare with next
+ *          BCC noswap      ; if current < next, no swap
+ *          BEQ noswap      ; if equal, no swap
+ *          ; swap elements
+ *          TAY             ; save current in Y
+ *          LDA $51,X       ; load next
+ *          STA $50,X       ; store in current position
+ *          TYA             ; restore current from Y
+ *          STA $51,X       ; store in next position
+ *          LDA #$01        ; set swap flag
+ *          STA $40
+ * noswap:  INX
+ *          CPX #$07        ; done with inner loop?
+ *          BNE inner
+ *          ; check if any swaps occurred
+ *          LDA $40
+ *          BEQ done        ; no swaps = sorted
+ *          DEC $41
+ *          BNE outer       ; continue outer loop
+ * done:    BRK
+ */
+TEST(test_stress_bubble_sort) {
+    CPU* cpu = setup_cpu();
+    Memory* mem = cpu_get_memory(cpu);
+
+    /* Unsorted data: 64, 25, 12, 22, 11, 90, 42, 8 */
+    memory_write(mem, 0x0050, 64);
+    memory_write(mem, 0x0051, 25);
+    memory_write(mem, 0x0052, 12);
+    memory_write(mem, 0x0053, 22);
+    memory_write(mem, 0x0054, 11);
+    memory_write(mem, 0x0055, 90);
+    memory_write(mem, 0x0056, 42);
+    memory_write(mem, 0x0057, 8);
+
+    uint8_t prog[] = {
+        /* $0200 */ 0xA9, 0x07,         /* LDA #$07 */
+        /* $0202 */ 0x85, 0x41,         /* STA $41 */
+        /* outer: $0204 */
+        /* $0204 */ 0xA9, 0x00,         /* LDA #$00 */
+        /* $0206 */ 0x85, 0x40,         /* STA $40 */
+        /* $0208 */ 0xA2, 0x00,         /* LDX #$00 */
+        /* inner: $020A */
+        /* $020A */ 0xB5, 0x50,         /* LDA $50,X */
+        /* $020C */ 0xD5, 0x51,         /* CMP $51,X */
+        /* $020E */ 0x90, 0x0E,         /* BCC noswap (+14 -> $021E) */
+        /* $0210 */ 0xF0, 0x0C,         /* BEQ noswap (+12 -> $021E) */
+        /* swap: */
+        /* $0212 */ 0xA8,               /* TAY */
+        /* $0213 */ 0xB5, 0x51,         /* LDA $51,X */
+        /* $0215 */ 0x95, 0x50,         /* STA $50,X */
+        /* $0217 */ 0x98,               /* TYA */
+        /* $0218 */ 0x95, 0x51,         /* STA $51,X */
+        /* $021A */ 0xA9, 0x01,         /* LDA #$01 */
+        /* $021C */ 0x85, 0x40,         /* STA $40 */
+        /* noswap: $021E */
+        /* $021E */ 0xE8,               /* INX */
+        /* $021F */ 0xE0, 0x07,         /* CPX #$07 */
+        /* $0221 */ 0xD0, 0xE7,         /* BNE inner (-25 -> $020A) */
+        /* check swaps */
+        /* $0223 */ 0xA5, 0x40,         /* LDA $40 */
+        /* $0225 */ 0xF0, 0x06,         /* BEQ done (+6 -> $022D) */
+        /* $0227 */ 0xC6, 0x41,         /* DEC $41 */
+        /* $0229 */ 0xD0, 0xD9,         /* BNE outer (-39 -> $0204) */
+        /* done: $022B or $022D depending on path */
+        /* $022B */ 0x00,               /* BRK (fallthrough) */
+        /* $022C */ 0x00,               /* BRK (padding) */
+        /* $022D */ 0x00                /* BRK (from BEQ done) */
+    };
+    memory_load(mem, 0x0200, prog, sizeof(prog));
+
+    /* Run until BRK (max 2000 instructions for safety) */
+    int instructions = 0;
+    while (instructions < 2000) {
+        uint8_t opcode = memory_read(mem, cpu_get_pc(cpu));
+        if (opcode == 0x00) break;  /* BRK */
+        cpu_step(cpu);
+        instructions++;
+    }
+
+    /* Verify sorted: 8, 11, 12, 22, 25, 42, 64, 90 */
+    CHECK_EQ(memory_read(mem, 0x0050), 8);
+    CHECK_EQ(memory_read(mem, 0x0051), 11);
+    CHECK_EQ(memory_read(mem, 0x0052), 12);
+    CHECK_EQ(memory_read(mem, 0x0053), 22);
+    CHECK_EQ(memory_read(mem, 0x0054), 25);
+    CHECK_EQ(memory_read(mem, 0x0055), 42);
+    CHECK_EQ(memory_read(mem, 0x0056), 64);
+    CHECK_EQ(memory_read(mem, 0x0057), 90);
+
+    /* Verify reasonable instruction count (bubble sort ~300-500 for this data) */
+    CHECK(instructions > 100, "Should execute many instructions");
+    CHECK(instructions < 1000, "Should not run forever");
+
+    cpu_destroy(cpu);
+}
+
+/*
+ * Fibonacci Sequence Generator
+ *
+ * Generates first 12 Fibonacci numbers: 1,1,2,3,5,8,13,21,34,55,89,144
+ * Results stored at $60-$6B
+ *
+ * Tests: loops, ADC, memory read/write, indexed addressing
+ *
+ *          LDA #$01        ; fib[0] = 1
+ *          STA $60
+ *          STA $61         ; fib[1] = 1
+ *          LDX #$02        ; start at index 2
+ * loop:    LDA $5E,X       ; load fib[n-2]
+ *          CLC
+ *          ADC $5F,X       ; add fib[n-1]
+ *          STA $60,X       ; store fib[n]
+ *          INX
+ *          CPX #$0C        ; 12 numbers total
+ *          BNE loop
+ *          BRK
+ */
+TEST(test_stress_fibonacci) {
+    CPU* cpu = setup_cpu();
+    Memory* mem = cpu_get_memory(cpu);
+
+    uint8_t prog[] = {
+        /* $0200 */ 0xA9, 0x01,         /* LDA #$01 */
+        /* $0202 */ 0x85, 0x60,         /* STA $60 */
+        /* $0204 */ 0x85, 0x61,         /* STA $61 */
+        /* $0206 */ 0xA2, 0x02,         /* LDX #$02 */
+        /* loop: $0208 */
+        /* $0208 */ 0xB5, 0x5E,         /* LDA $5E,X (fib[n-2]) */
+        /* $020A */ 0x18,               /* CLC */
+        /* $020B */ 0x75, 0x5F,         /* ADC $5F,X (fib[n-1]) */
+        /* $020D */ 0x95, 0x60,         /* STA $60,X (fib[n]) */
+        /* $020F */ 0xE8,               /* INX */
+        /* $0210 */ 0xE0, 0x0C,         /* CPX #$0C */
+        /* $0212 */ 0xD0, 0xF4,         /* BNE loop (-12 -> $0208) */
+        /* $0214 */ 0x00                /* BRK */
+    };
+    memory_load(mem, 0x0200, prog, sizeof(prog));
+
+    /* Run until BRK */
+    while (memory_read(mem, cpu_get_pc(cpu)) != 0x00) {
+        cpu_step(cpu);
+    }
+
+    /* Verify Fibonacci sequence: 1,1,2,3,5,8,13,21,34,55,89,144 */
+    CHECK_EQ(memory_read(mem, 0x0060), 1);
+    CHECK_EQ(memory_read(mem, 0x0061), 1);
+    CHECK_EQ(memory_read(mem, 0x0062), 2);
+    CHECK_EQ(memory_read(mem, 0x0063), 3);
+    CHECK_EQ(memory_read(mem, 0x0064), 5);
+    CHECK_EQ(memory_read(mem, 0x0065), 8);
+    CHECK_EQ(memory_read(mem, 0x0066), 13);
+    CHECK_EQ(memory_read(mem, 0x0067), 21);
+    CHECK_EQ(memory_read(mem, 0x0068), 34);
+    CHECK_EQ(memory_read(mem, 0x0069), 55);
+    CHECK_EQ(memory_read(mem, 0x006A), 89);
+    CHECK_EQ(memory_read(mem, 0x006B), 144);
+
+    cpu_destroy(cpu);
+}
+
+/*
+ * Nested Subroutine Stress Test
+ *
+ * Tests deep stack usage with 4 levels of nested JSR/RTS.
+ * Each subroutine pushes a value, calls the next, then pops and stores.
+ *
+ *          JSR sub1        ; call level 1
+ *          BRK
+ * sub1:    LDA #$11
+ *          PHA
+ *          JSR sub2
+ *          PLA
+ *          STA $70         ; store $11
+ *          RTS
+ * sub2:    LDA #$22
+ *          PHA
+ *          JSR sub3
+ *          PLA
+ *          STA $71         ; store $22
+ *          RTS
+ * sub3:    LDA #$33
+ *          PHA
+ *          JSR sub4
+ *          PLA
+ *          STA $72         ; store $33
+ *          RTS
+ * sub4:    LDA #$44
+ *          STA $73         ; store $44 (deepest level)
+ *          RTS
+ */
+TEST(test_stress_nested_calls) {
+    CPU* cpu = setup_cpu();
+    Memory* mem = cpu_get_memory(cpu);
+    uint8_t initial_sp = cpu_get_sp(cpu);
+
+    uint8_t prog[] = {
+        /* $0200 */ 0x20, 0x05, 0x02,   /* JSR sub1 ($0205) */
+        /* $0203 */ 0x00,               /* BRK */
+        /* $0204 */ 0x00,               /* (padding) */
+        /* sub1: $0205 */
+        /* $0205 */ 0xA9, 0x11,         /* LDA #$11 */
+        /* $0207 */ 0x48,               /* PHA */
+        /* $0208 */ 0x20, 0x12, 0x02,   /* JSR sub2 ($0212) */
+        /* $020B */ 0x68,               /* PLA */
+        /* $020C */ 0x85, 0x70,         /* STA $70 */
+        /* $020E */ 0x60,               /* RTS */
+        /* $020F */ 0x00, 0x00, 0x00,   /* (padding) */
+        /* sub2: $0212 */
+        /* $0212 */ 0xA9, 0x22,         /* LDA #$22 */
+        /* $0214 */ 0x48,               /* PHA */
+        /* $0215 */ 0x20, 0x1F, 0x02,   /* JSR sub3 ($021F) */
+        /* $0218 */ 0x68,               /* PLA */
+        /* $0219 */ 0x85, 0x71,         /* STA $71 */
+        /* $021B */ 0x60,               /* RTS */
+        /* $021C */ 0x00, 0x00, 0x00,   /* (padding) */
+        /* sub3: $021F */
+        /* $021F */ 0xA9, 0x33,         /* LDA #$33 */
+        /* $0221 */ 0x48,               /* PHA */
+        /* $0222 */ 0x20, 0x2C, 0x02,   /* JSR sub4 ($022C) */
+        /* $0225 */ 0x68,               /* PLA */
+        /* $0226 */ 0x85, 0x72,         /* STA $72 */
+        /* $0228 */ 0x60,               /* RTS */
+        /* $0229 */ 0x00, 0x00, 0x00,   /* (padding) */
+        /* sub4: $022C */
+        /* $022C */ 0xA9, 0x44,         /* LDA #$44 */
+        /* $022E */ 0x85, 0x73,         /* STA $73 */
+        /* $0230 */ 0x60                /* RTS */
+    };
+    memory_load(mem, 0x0200, prog, sizeof(prog));
+
+    /* Run until BRK */
+    int instructions = 0;
+    while (memory_read(mem, cpu_get_pc(cpu)) != 0x00 && instructions < 100) {
+        cpu_step(cpu);
+        instructions++;
+    }
+
+    /* Verify all subroutines executed and returned correctly */
+    CHECK_EQ(memory_read(mem, 0x0070), 0x11);
+    CHECK_EQ(memory_read(mem, 0x0071), 0x22);
+    CHECK_EQ(memory_read(mem, 0x0072), 0x33);
+    CHECK_EQ(memory_read(mem, 0x0073), 0x44);
+
+    /* Stack should be restored */
+    CHECK_EQ(cpu_get_sp(cpu), initial_sp);
+
+    /* Should have ended at BRK at $0203 */
+    CHECK_EQ(cpu_get_pc(cpu), 0x0203);
+
+    cpu_destroy(cpu);
+}
+
+/*
+ * Memory Block Compare
+ *
+ * Compares two 16-byte blocks and counts differences.
+ * Result stored in $80.
+ *
+ * Block 1: $0300-$030F
+ * Block 2: $0310-$031F
+ *
+ *          LDA #$00        ; difference count = 0
+ *          STA $80
+ *          LDX #$0F        ; 16 bytes (index 15 down to 0)
+ * loop:    LDA $0300,X
+ *          CMP $0310,X
+ *          BEQ same
+ *          INC $80         ; count difference
+ * same:    DEX
+ *          BPL loop
+ *          BRK
+ */
+TEST(test_stress_memcmp) {
+    CPU* cpu = setup_cpu();
+    Memory* mem = cpu_get_memory(cpu);
+
+    /* Block 1: 0-15 */
+    for (int i = 0; i < 16; i++) {
+        memory_write(mem, 0x0300 + i, i);
+    }
+
+    /* Block 2: same as block 1, except positions 3, 7, 11 are different */
+    for (int i = 0; i < 16; i++) {
+        memory_write(mem, 0x0310 + i, i);
+    }
+    memory_write(mem, 0x0313, 0xFF);  /* difference at index 3 */
+    memory_write(mem, 0x0317, 0xFF);  /* difference at index 7 */
+    memory_write(mem, 0x031B, 0xFF);  /* difference at index 11 */
+
+    uint8_t prog[] = {
+        /* $0200 */ 0xA9, 0x00,             /* LDA #$00 */
+        /* $0202 */ 0x85, 0x80,             /* STA $80 */
+        /* $0204 */ 0xA2, 0x0F,             /* LDX #$0F */
+        /* loop: $0206 */
+        /* $0206 */ 0xBD, 0x00, 0x03,       /* LDA $0300,X */
+        /* $0209 */ 0xDD, 0x10, 0x03,       /* CMP $0310,X */
+        /* $020C */ 0xF0, 0x02,             /* BEQ same (+2 -> $0210) */
+        /* $020E */ 0xE6, 0x80,             /* INC $80 */
+        /* same: $0210 */
+        /* $0210 */ 0xCA,                   /* DEX */
+        /* $0211 */ 0x10, 0xF3,             /* BPL loop (-13 -> $0206) */
+        /* $0213 */ 0x00                    /* BRK */
+    };
+    memory_load(mem, 0x0200, prog, sizeof(prog));
+
+    /* Run until BRK */
+    while (memory_read(mem, cpu_get_pc(cpu)) != 0x00) {
+        cpu_step(cpu);
+    }
+
+    /* Should have found 3 differences */
+    CHECK_EQ(memory_read(mem, 0x0080), 3);
+    CHECK_EQ(cpu_get_x(cpu), 0xFF);  /* X wrapped to $FF */
+
+    cpu_destroy(cpu);
+}
+
 /* ===================== Main ===================== */
 
 int main(void) {
@@ -482,6 +812,12 @@ int main(void) {
 
     printf("\n--- Memory Tests ---\n");
     RUN_TEST(test_indirect_indexed_copy);
+
+    printf("\n--- Stress Tests ---\n");
+    RUN_TEST(test_stress_bubble_sort);
+    RUN_TEST(test_stress_fibonacci);
+    RUN_TEST(test_stress_nested_calls);
+    RUN_TEST(test_stress_memcmp);
 
     print_test_summary();
     return failed_test_count > 0 ? 1 : 0;

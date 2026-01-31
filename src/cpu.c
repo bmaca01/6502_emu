@@ -117,7 +117,9 @@ static void cpu_instruction_exec(CPU* cpu, uint8_t* curr_cycles,
             *dst = val;
 
             if (*dst == 0)          cpu->status |= FLAG_Z;
+            else                    cpu->status &= ~FLAG_Z;
             if ((*dst & 0x80)>>7)   cpu->status |= FLAG_N;
+            else                    cpu->status &= ~FLAG_N;
             /* Cycle already counted in addressing mode resolution */
             break;
         case STA: case STX: case STY:
@@ -183,14 +185,18 @@ static void cpu_instruction_exec(CPU* cpu, uint8_t* curr_cycles,
             dst = (opcode == DEX) ? &cpu->x : &cpu->y;
             (*dst)--;
             if (*dst == 0)              cpu->status |= FLAG_Z;
+            else                        cpu->status &= ~FLAG_Z;
             if ((*dst & 0x80)>>7)       cpu->status |= FLAG_N;
+            else                        cpu->status &= ~FLAG_N;
             (*curr_cycles)++;
             break;
         case INX: case INY:
             dst = (opcode == INX) ? &cpu->x : &cpu->y;
             (*dst)++;
             if (*dst == 0)              cpu->status |= FLAG_Z;
+            else                        cpu->status &= ~FLAG_Z;
             if ((*dst & 0x80)>>7)       cpu->status |= FLAG_N;
+            else                        cpu->status &= ~FLAG_N;
             (*curr_cycles)++;
             break;
         case INC: case DEC:
@@ -199,7 +205,9 @@ static void cpu_instruction_exec(CPU* cpu, uint8_t* curr_cycles,
 
             memory_write(cpu->mem, ea, val);
             if (val == 0)              cpu->status |= FLAG_Z;
+            else                       cpu->status &= ~FLAG_Z;
             if ((val & 0x80)>>7)       cpu->status |= FLAG_N;
+            else                       cpu->status &= ~FLAG_N;
             (*curr_cycles)++;
             break;
 
@@ -221,7 +229,9 @@ static void cpu_instruction_exec(CPU* cpu, uint8_t* curr_cycles,
             else if (opcode == SBC && cpu->a > a_old)   cpu->status &= ~FLAG_C; // Clear carry flag if negative overflow happens
             if (same_sign && (old_sign != new_sign))    cpu->status |= FLAG_V;
             if (*dst == 0)                              cpu->status |= FLAG_Z;
+            else                                        cpu->status &= ~FLAG_Z;
             if ((*dst & 0x80)>>7)                       cpu->status |= FLAG_N;
+            else                                        cpu->status &= ~FLAG_N;
             break;
         }
 
@@ -265,7 +275,9 @@ static void cpu_instruction_exec(CPU* cpu, uint8_t* curr_cycles,
             if (carry_set)          cpu->status &= ~FLAG_C;
             if (will_set_carry)     cpu->status |= FLAG_C;
             if (val == 0)           cpu->status |= FLAG_Z;
+            else                    cpu->status &= ~FLAG_Z;
             if ((val & 0x80)>>7)    cpu->status |= FLAG_N;
+            else                    cpu->status &= ~FLAG_N;
             (*curr_cycles)++;
             break;
         }
