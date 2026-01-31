@@ -1,6 +1,7 @@
 #include "cpu.h"
 #include "opcodes.h"
 #include "addressing.h"
+#include "util.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -151,25 +152,27 @@ static void cpu_instruction_exec(CPU* cpu, uint8_t* curr_cycles,
         case PHA: case PHP:
             src = (opcode == PHA) ? &cpu->a : &cpu->status;
 
-            if (opcode == PHP)
-                *src |= (FLAG_B | FLAG_U);
+            if (opcode == PHP)  val = *src | (FLAG_B | FLAG_U);
+            else                val = *src;
 
-            memory_write(cpu->mem, (0x0100 | (--cpu->sp)), *src);
+            memory_write(cpu->mem, (0x0100 | (cpu->sp--)), val);
             (*curr_cycles)++;
             (*curr_cycles)++;
             break;
+
         case PLA: case PLP:
             dst = (opcode == PLA) ? &cpu->a : &cpu->status;
-            val = memory_read(cpu->mem, (0x0100 | cpu->sp));
-            cpu->sp++;
+            val = memory_read(cpu->mem, (0x0100 | (++cpu->sp)));
 
             *dst = val;
-
-            if (opcode == PLA){
-                if (*dst == 0)              cpu->status |= FLAG_Z;
-                if ((*dst & 0x80)>>7)       cpu->status |= FLAG_N;
+            if (opcode == PLA) {
+                if (*dst == 0)          cpu->status |= FLAG_Z;
+                else                    cpu->status &= ~FLAG_Z;
+                if ((*dst & 0x80)>>7)   cpu->status |= FLAG_N;
+                else                    cpu->status &= ~FLAG_N;
             }
-
+            /* Discard FLAG_B */
+            cpu->status &= ~FLAG_B;
             (*curr_cycles)++;
             (*curr_cycles)++;
             (*curr_cycles)++;
@@ -267,6 +270,133 @@ static void cpu_instruction_exec(CPU* cpu, uint8_t* curr_cycles,
             break;
         }
 
+        /* ==== FLAGS ==== */
+        case CLC: case CLD: case CLI: case CLV: 
+            dst = &cpu->status;
+            if (opcode == CLC)  *dst &= ~FLAG_C;
+            if (opcode == CLD)  *dst &= ~FLAG_D;
+            if (opcode == CLI)  *dst &= ~FLAG_I;
+            if (opcode == CLV)  *dst &= ~FLAG_V;
+            (*curr_cycles)++;
+            break;
+        case SEC: case SED: case SEI:
+            dst = &cpu->status;
+            if (opcode == SEC)  *dst |= FLAG_C;
+            if (opcode == SED)  *dst |= FLAG_D;
+            if (opcode == SEI)  *dst |= FLAG_I;
+            (*curr_cycles)++;
+            break;
+
+        /* ==== COMPARISONS ==== */
+        case CMP: case CPX: case CPY:
+            src = (opcode == CMP) ? &cpu->a :
+                  (opcode == CPX) ? &cpu->x : &cpu->y;
+            if (a_mode == IMM)      val = operand;
+            else                    val = memory_read(cpu->mem, ea);
+            dst = &cpu->status;
+
+            val = *src - val;
+            if (((int8_t)val) < 0) {
+                *dst &= ~(FLAG_C | FLAG_Z);
+                *dst |= (val & 0x80);
+            } else if (val == 0) {
+                *dst |= FLAG_Z | FLAG_C;
+            } else {
+                *dst &= ~FLAG_Z;
+                *dst |= FLAG_C | (val & 0x80);
+            }
+            break;
+
+        /* ==== BIT ==== */
+        case BIT:
+            src = &cpu->a;
+            dst = &cpu->status;
+            val = memory_read(cpu->mem, ea);
+
+            *dst = (*dst & ~(FLAG_N | FLAG_V | FLAG_Z))
+                 | ((!(*src & val))<<1)
+                 | (val & 0xC0);
+            break;
+
+        /* ==== CONDITIONAL BRANCH ==== */
+        case BCC: case BCS: case BEQ: case BMI: case BNE: 
+        case BPL: case BVC: case BVS: {
+            bool take_branch = false;
+            val = (int8_t)operand;
+            if (opcode == BCC)  take_branch = !(cpu->status & FLAG_C);
+            if (opcode == BCS)  take_branch = cpu->status & FLAG_C;
+            if (opcode == BEQ)  take_branch = cpu->status & FLAG_Z;
+            if (opcode == BMI)  take_branch = cpu->status & FLAG_N;
+            if (opcode == BNE)  take_branch = !(cpu->status & FLAG_Z);
+            if (opcode == BPL)  take_branch = !(cpu->status & FLAG_N);
+            if (opcode == BVC)  take_branch = !(cpu->status & FLAG_V);
+            if (opcode == BVS)  take_branch = cpu->status & FLAG_V;
+            bool page_cross = ((cpu->mar + (int8_t)val) & 0xFF00) != (cpu->mar & 0xFF00);
+
+            if (take_branch) {
+                (*curr_cycles)++;
+                if (page_cross) (*curr_cycles)++;
+                cpu->mar += (int8_t)val;
+            }    
+            break;
+        }
+
+        /* ==== JUMP / SUBROUTINE ==== */
+        case JMP:
+            if (a_mode == ABS)  (*curr_cycles)--;
+            cpu->mar = (ea - 1);
+            break;
+        case JSR:
+            /* Push (cpu->mar) hi */
+            memory_write(cpu->mem, (0x0100 | (cpu->sp--)), (((cpu->pc + 2) & 0xFF00)>>8));
+            /* Push (cpu->mar) lo */
+            memory_write(cpu->mem, (0x0100 | (cpu->sp--)), ((cpu->pc + 2) & 0x00FF));
+            cpu->mar = (ea - 1);
+            *curr_cycles += 2;
+            break;
+        case RTS: {
+            uint8_t pcl, pch;   /* Should maybe move these elsewhere..? */
+            pcl = memory_read(cpu->mem, (0x0100 | (++cpu->sp)));
+            pch = memory_read(cpu->mem, (0x0100 | (++cpu->sp)));
+            cpu->mar = ((uint16_t)pch)<<8 | pcl;
+            *curr_cycles += 5;
+            break;
+        }
+
+        /* ==== INTERRUPTS ==== */
+        case BRK: {
+            /* Copy/pasted from JSR: push PC + 2 */
+            memory_write(cpu->mem, (0x0100 | (cpu->sp--)), (((cpu->pc + 2) & 0xFF00)>>8));
+            memory_write(cpu->mem, (0x0100 | (cpu->sp--)), ((cpu->pc + 2) & 0x00FF));
+
+            /* Push the status register (copy, with FLAG_B set) */
+            val = cpu->status | FLAG_B | FLAG_U;
+            memory_write(cpu->mem, (0x0100 | (cpu->sp--)), val);
+
+            /* Set interrupt disable */
+            cpu->status |= FLAG_I;
+
+            /* Set PC from $FFFE / $FFFF */
+            uint8_t pcl, pch;   /* Should maybe move these elsewhere..? */
+            pcl = memory_read(cpu->mem, 0xFFFE);
+            pch = memory_read(cpu->mem, 0xFFFF);
+            cpu->mar = (((uint16_t)pch)<<8 | pcl) - 1;
+            *curr_cycles += 6;
+
+            break;
+        }
+
+        case RTI: {
+            /* Pull SR, then pull PC */
+            uint8_t pcl, pch;   /* Should maybe move these elsewhere..? */
+            cpu->status = (memory_read(cpu->mem, (0x0100 | (++cpu->sp))) & ~(FLAG_B | FLAG_U));
+            pcl = memory_read(cpu->mem, (0x0100 | (++cpu->sp)));
+            pch = memory_read(cpu->mem, (0x0100 | (++cpu->sp)));
+            cpu->mar = (((uint16_t)pch)<<8 | pcl) - 1;
+            *curr_cycles += 5;
+            break;
+        }
+
         /* ==== NOP ==== */
         case NOP:
             (*curr_cycles)++;
@@ -303,7 +433,7 @@ static void cpu_resolve_ea(CPU* cpu, addr_mode_t curr_am, int16_t *operand_ptr,
                 case ABS:   e_addr = operand;           break;
                 case ABS_X: e_addr = operand + cpu->x;  break; // TODO: how to handle overflow..?
                 case ABS_Y: e_addr = operand + cpu->y;  break;
-                case IND:   
+                case IND:
                     e_addr = (memory_read(cpu->mem, operand))
                            | (memory_read(cpu->mem, (operand & 0xFF00) | ((operand + 1) & 0x00FF))<<8);
                     break;
@@ -404,6 +534,7 @@ static void cpu_increment_cycles(addr_mode_t curr_am, opcode_t curr_oc,
             curr_cycles += 2;
             break;
         case IMM:       /* IMM: 2 cycles */
+        case REL:
             curr_cycles += 1;
             break;
         case ACC:
