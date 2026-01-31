@@ -19,7 +19,10 @@ addr_mode_t fetch_addr_mode(uint8_t b) {
                 return IMPL;
             }
             break;
-        case 3: return ABS; break;
+        case 3: 
+            if (b == 0x6C)  return IND;
+            else            return ABS; 
+            break;
         case 4:
             if (decoded.cc == 0) return REL;
             else return IND_IDX;
