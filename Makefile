@@ -16,9 +16,10 @@ OBJS = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.o,$(SRCS))
 # Exclude main.o and scrap.o for test builds (tests have their own main)
 LIB_OBJS = $(filter-out $(BUILD_DIR)/main.o $(BUILD_DIR)/scrap.o,$(OBJS))
 
-# Test files
-TEST_SRCS = $(wildcard $(TEST_DIR)/*.c)
+# Test files (exclude test_common.c which is a library, not a test binary)
+TEST_SRCS = $(filter-out $(TEST_DIR)/test_common.c,$(wildcard $(TEST_DIR)/*.c))
 TEST_BINS = $(patsubst $(TEST_DIR)/%.c,$(BUILD_DIR)/%,$(TEST_SRCS))
+TEST_COMMON = $(BUILD_DIR)/test_common.o
 
 # Main target
 TARGET = $(BUILD_DIR)/emu6502
@@ -39,9 +40,13 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 $(TARGET): $(OBJS)
 	$(CC) $(LDFLAGS) $^ -o $@
 
-# Build test executables (link test file with library objects, not main.o)
-$(BUILD_DIR)/test_%: $(TEST_DIR)/test_%.c $(LIB_OBJS) | $(BUILD_DIR)
-	$(CC) $(CFLAGS) $(LDFLAGS) $< $(LIB_OBJS) -o $@
+# Build test_common.o
+$(TEST_COMMON): $(TEST_DIR)/test_common.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Build test executables (link test file with library objects and test_common.o)
+$(BUILD_DIR)/test_%: $(TEST_DIR)/test_%.c $(LIB_OBJS) $(TEST_COMMON) | $(BUILD_DIR)
+	$(CC) $(CFLAGS) $(LDFLAGS) $< $(LIB_OBJS) $(TEST_COMMON) -o $@
 
 # Build all tests
 test: $(TEST_BINS)
