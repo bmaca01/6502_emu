@@ -21,7 +21,9 @@ void    cpu_reset(CPU* cpu);
 uint8_t cpu_step(CPU* cpu);
 
 void    cpu_nmi(CPU* cpu);
+void    cpu_nmi_release(CPU* cpu);
 void    cpu_irq(CPU* cpu);
+void    cpu_irq_release(CPU* cpu);
 
 /* Accessors for testing */
 uint8_t  cpu_get_a(CPU* cpu);

@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
 
 /* Forward declarations */
 static void cpu_instruction_exec(CPU* cpu, uint8_t* curr_cycles,
@@ -14,8 +15,11 @@ static void cpu_instruction_exec(CPU* cpu, uint8_t* curr_cycles,
 static void cpu_resolve_ea(CPU* cpu, addr_mode_t curr_am, int16_t *operand, 
                            uint16_t *ea, bool *cross_page);
 
-static void cpu_increment_cycles(addr_mode_t curr_am, opcode_t curr_oc, 
+static void cpu_increment_cycles(addr_mode_t curr_am, opcode_t curr_oc,
                                  ins_type_t curr_it, bool cp, uint8_t *c);
+
+static uint8_t cpu_do_interrupt(CPU* cpu, uint16_t return_addr,
+                                uint16_t vector, bool is_brk);
 
 struct CPU {
     uint8_t a;
@@ -29,6 +33,12 @@ struct CPU {
 
     uint64_t total_cycles;
     bool halted;
+
+    // Interrupt state
+    bool nmi_line;       // current NMI input (true = asserted/low)
+    bool nmi_line_prev;  // previous NMI state (for edge detection)
+    bool nmi_pending;    // edge detected, waiting to service
+    bool irq_line;       // current IRQ input (true = asserted/low)
 
     // Internal registers
     uint16_t mar;   // Memory Address Register
@@ -65,10 +75,33 @@ void cpu_reset(CPU* cpu) {
 
     cpu->halted = false;
 
+    cpu->nmi_line = false;
+    cpu->nmi_line_prev = false;
+    cpu->nmi_pending = false;
+    cpu->irq_line = false;
+
     return;
 }
 
 uint8_t cpu_step(CPU* cpu) {
+    /* Poll for pending interrupts before fetching next instruction */
+
+    /* NMI edge detection: falling edge (line went from low to high/asserted) */
+    if (cpu->nmi_line && !cpu->nmi_line_prev)
+        cpu->nmi_pending = true;
+    cpu->nmi_line_prev = cpu->nmi_line;
+
+    /* Service NMI (highest priority, non-maskable) */
+    if (cpu->nmi_pending) {
+        cpu->nmi_pending = false;
+        return cpu_do_interrupt(cpu, cpu->pc, 0xFFFA, false);
+    }
+
+    /* Service IRQ (level-triggered, maskable via FLAG_I) */
+    if (cpu->irq_line && !(cpu->status & FLAG_I)) {
+        return cpu_do_interrupt(cpu, cpu->pc, 0xFFFE, false);
+    }
+
     uint8_t curr_cycles = 0;
     bool cross_page = false;
 
@@ -377,27 +410,11 @@ static void cpu_instruction_exec(CPU* cpu, uint8_t* curr_cycles,
         }
 
         /* ==== INTERRUPTS ==== */
-        case BRK: {
-            /* Copy/pasted from JSR: push PC + 2 */
-            bus_write(cpu->bus, (0x0100 | (cpu->sp--)), (((cpu->pc + 2) & 0xFF00)>>8));
-            bus_write(cpu->bus, (0x0100 | (cpu->sp--)), ((cpu->pc + 2) & 0x00FF));
-
-            /* Push the status register (copy, with FLAG_B set) */
-            val = cpu->status | FLAG_B | FLAG_U;
-            bus_write(cpu->bus, (0x0100 | (cpu->sp--)), val);
-
-            /* Set interrupt disable */
-            cpu->status |= FLAG_I;
-
-            /* Set PC from $FFFE / $FFFF */
-            uint8_t pcl, pch;   /* Should maybe move these elsewhere..? */
-            pcl = bus_read(cpu->bus, 0xFFFE);
-            pch = bus_read(cpu->bus, 0xFFFF);
-            cpu->mar = (((uint16_t)pch)<<8 | pcl) - 1;
+        case BRK:
+            cpu_do_interrupt(cpu, cpu->pc + 2, 0xFFFE, true);
+            cpu->mar = cpu->pc - 1;
             *curr_cycles += 6;
-
             break;
-        }
 
         case RTI: {
             /* Pull SR, then pull PC */
@@ -564,12 +581,43 @@ static void cpu_increment_cycles(addr_mode_t curr_am, opcode_t curr_oc,
 }
 
 
+static uint8_t cpu_do_interrupt(CPU* cpu, uint16_t return_addr,
+                                uint16_t vector, bool is_brk) {
+    /* Push return address high then low */
+    bus_write(cpu->bus, (0x0100 | (cpu->sp--)), ((return_addr & 0xFF00) >> 8));
+    bus_write(cpu->bus, (0x0100 | (cpu->sp--)), (return_addr & 0x00FF));
+
+    /* Push status: B set for BRK, clear for hardware interrupts; U always set */
+    uint8_t pushed_status = cpu->status | FLAG_U;
+    if (is_brk) pushed_status |= FLAG_B;
+    else         pushed_status &= ~FLAG_B;
+    bus_write(cpu->bus, (0x0100 | (cpu->sp--)), pushed_status);
+
+    /* Set interrupt disable */
+    cpu->status |= FLAG_I;
+
+    /* Load PC from vector */
+    uint8_t pcl = bus_read(cpu->bus, vector);
+    uint8_t pch = bus_read(cpu->bus, vector + 1);
+    cpu->pc = ((uint16_t)pch << 8) | pcl;
+
+    return 7;
+}
+
 void cpu_nmi(CPU* cpu) {
-    return;
+    cpu->nmi_line = true;
+}
+
+void cpu_nmi_release(CPU* cpu) {
+    cpu->nmi_line = false;
 }
 
 void cpu_irq(CPU* cpu) {
-    return;
+    cpu->irq_line = true;
+}
+
+void cpu_irq_release(CPU* cpu) {
+    cpu->irq_line = false;
 }
 
 uint8_t  cpu_get_a(CPU* cpu)      { return cpu->a; }
