@@ -1,12 +1,12 @@
 #include "test_common.h"
-#include "memory.h"
+#include "bus.h"
 
 /* ============================ LDA Tests ==================================== */
 TEST(test_lda_imm_positive) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
-    memory_write(mem, 0x0200, 0xA9);
-    memory_write(mem, 0x0201, 0x42);
+    Bus* bus = cpu_get_bus(cpu);
+    bus_write(bus, 0x0200, 0xA9);
+    bus_write(bus, 0x0201, 0x42);
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -19,9 +19,9 @@ TEST(test_lda_imm_positive) {
 
 TEST(test_lda_imm_zero) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
-    memory_write(mem, 0x0200, 0xA9);  /* LDA #$00 */
-    memory_write(mem, 0x0201, 0x00);
+    Bus* bus = cpu_get_bus(cpu);
+    bus_write(bus, 0x0200, 0xA9);  /* LDA #$00 */
+    bus_write(bus, 0x0201, 0x00);
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -34,9 +34,9 @@ TEST(test_lda_imm_zero) {
 
 TEST(test_lda_imm_negative) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
-    memory_write(mem, 0x0200, 0xA9);  /* LDA #$80 */
-    memory_write(mem, 0x0201, 0x80);
+    Bus* bus = cpu_get_bus(cpu);
+    bus_write(bus, 0x0200, 0xA9);  /* LDA #$80 */
+    bus_write(bus, 0x0201, 0x80);
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -49,10 +49,10 @@ TEST(test_lda_imm_negative) {
 
 TEST(test_lda_zpg) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
-    memory_write(mem, 0x0200, 0xA5);  /* LDA $10 */
-    memory_write(mem, 0x0201, 0x10);
-    memory_write(mem, 0x0010, 0x42);  /* Value at ZP $10 */
+    Bus* bus = cpu_get_bus(cpu);
+    bus_write(bus, 0x0200, 0xA5);  /* LDA $10 */
+    bus_write(bus, 0x0201, 0x10);
+    bus_write(bus, 0x0010, 0x42);  /* Value at ZP $10 */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -64,11 +64,11 @@ TEST(test_lda_zpg) {
 
 TEST(test_lda_zpg_x) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_x(cpu, 0x05);
-    memory_write(mem, 0x0200, 0xB5);  /* LDA $10,X */
-    memory_write(mem, 0x0201, 0x10);
-    memory_write(mem, 0x0015, 0x42);  /* Value at ZP $10+$05 */
+    bus_write(bus, 0x0200, 0xB5);  /* LDA $10,X */
+    bus_write(bus, 0x0201, 0x10);
+    bus_write(bus, 0x0015, 0x42);  /* Value at ZP $10+$05 */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -80,11 +80,11 @@ TEST(test_lda_zpg_x) {
 
 TEST(test_lda_abs) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
-    memory_write(mem, 0x0200, 0xAD);  /* LDA $1234 */
-    memory_write(mem, 0x0201, 0x34);
-    memory_write(mem, 0x0202, 0x12);
-    memory_write(mem, 0x1234, 0x42);  /* Value at $1234 */
+    Bus* bus = cpu_get_bus(cpu);
+    bus_write(bus, 0x0200, 0xAD);  /* LDA $1234 */
+    bus_write(bus, 0x0201, 0x34);
+    bus_write(bus, 0x0202, 0x12);
+    bus_write(bus, 0x1234, 0x42);  /* Value at $1234 */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -96,12 +96,12 @@ TEST(test_lda_abs) {
 
 TEST(test_lda_abs_x) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_x(cpu, 0x04);
-    memory_write(mem, 0x0200, 0xBD);  /* LDA $1230,X */
-    memory_write(mem, 0x0201, 0x30);
-    memory_write(mem, 0x0202, 0x12);
-    memory_write(mem, 0x1234, 0x42);  /* Value at $1230+$04 */
+    bus_write(bus, 0x0200, 0xBD);  /* LDA $1230,X */
+    bus_write(bus, 0x0201, 0x30);
+    bus_write(bus, 0x0202, 0x12);
+    bus_write(bus, 0x1234, 0x42);  /* Value at $1230+$04 */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -113,12 +113,12 @@ TEST(test_lda_abs_x) {
 
 TEST(test_lda_abs_y) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_y(cpu, 0x04);
-    memory_write(mem, 0x0200, 0xB9);  /* LDA $1230,Y */
-    memory_write(mem, 0x0201, 0x30);
-    memory_write(mem, 0x0202, 0x12);
-    memory_write(mem, 0x1234, 0x42);  /* Value at $1230+$04 */
+    bus_write(bus, 0x0200, 0xB9);  /* LDA $1230,Y */
+    bus_write(bus, 0x0201, 0x30);
+    bus_write(bus, 0x0202, 0x12);
+    bus_write(bus, 0x1234, 0x42);  /* Value at $1230+$04 */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -130,13 +130,13 @@ TEST(test_lda_abs_y) {
 
 TEST(test_lda_ind_x) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_x(cpu, 0x04);
-    memory_write(mem, 0x0200, 0xA1);  /* LDA ($10,X) */
-    memory_write(mem, 0x0201, 0x10);
-    memory_write(mem, 0x0014, 0x34);  /* Low byte of target addr at $10+$04 */
-    memory_write(mem, 0x0015, 0x12);  /* High byte */
-    memory_write(mem, 0x1234, 0x42);  /* Value at $1234 */
+    bus_write(bus, 0x0200, 0xA1);  /* LDA ($10,X) */
+    bus_write(bus, 0x0201, 0x10);
+    bus_write(bus, 0x0014, 0x34);  /* Low byte of target addr at $10+$04 */
+    bus_write(bus, 0x0015, 0x12);  /* High byte */
+    bus_write(bus, 0x1234, 0x42);  /* Value at $1234 */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -148,13 +148,13 @@ TEST(test_lda_ind_x) {
 
 TEST(test_lda_ind_y) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_y(cpu, 0x04);
-    memory_write(mem, 0x0200, 0xB1);  /* LDA ($10),Y */
-    memory_write(mem, 0x0201, 0x10);
-    memory_write(mem, 0x0010, 0x30);  /* Low byte of base addr */
-    memory_write(mem, 0x0011, 0x12);  /* High byte */
-    memory_write(mem, 0x1234, 0x42);  /* Value at $1230+$04 */
+    bus_write(bus, 0x0200, 0xB1);  /* LDA ($10),Y */
+    bus_write(bus, 0x0201, 0x10);
+    bus_write(bus, 0x0010, 0x30);  /* Low byte of base addr */
+    bus_write(bus, 0x0011, 0x12);  /* High byte */
+    bus_write(bus, 0x1234, 0x42);  /* Value at $1230+$04 */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -168,9 +168,9 @@ TEST(test_lda_ind_y) {
 
 TEST(test_ldx_imm_positive) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
-    memory_write(mem, 0x0200, 0xA2);  /* LDX #$42 */
-    memory_write(mem, 0x0201, 0x42);
+    Bus* bus = cpu_get_bus(cpu);
+    bus_write(bus, 0x0200, 0xA2);  /* LDX #$42 */
+    bus_write(bus, 0x0201, 0x42);
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -183,9 +183,9 @@ TEST(test_ldx_imm_positive) {
 
 TEST(test_ldx_imm_zero) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
-    memory_write(mem, 0x0200, 0xA2);  /* LDX #$00 */
-    memory_write(mem, 0x0201, 0x00);
+    Bus* bus = cpu_get_bus(cpu);
+    bus_write(bus, 0x0200, 0xA2);  /* LDX #$00 */
+    bus_write(bus, 0x0201, 0x00);
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -198,9 +198,9 @@ TEST(test_ldx_imm_zero) {
 
 TEST(test_ldx_imm_negative) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
-    memory_write(mem, 0x0200, 0xA2);  /* LDX #$80 */
-    memory_write(mem, 0x0201, 0x80);
+    Bus* bus = cpu_get_bus(cpu);
+    bus_write(bus, 0x0200, 0xA2);  /* LDX #$80 */
+    bus_write(bus, 0x0201, 0x80);
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -213,10 +213,10 @@ TEST(test_ldx_imm_negative) {
 
 TEST(test_ldx_zpg) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
-    memory_write(mem, 0x0200, 0xA6);  /* LDX $10 */
-    memory_write(mem, 0x0201, 0x10);
-    memory_write(mem, 0x0010, 0x42);
+    Bus* bus = cpu_get_bus(cpu);
+    bus_write(bus, 0x0200, 0xA6);  /* LDX $10 */
+    bus_write(bus, 0x0201, 0x10);
+    bus_write(bus, 0x0010, 0x42);
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -228,11 +228,11 @@ TEST(test_ldx_zpg) {
 
 TEST(test_ldx_zpg_y) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_y(cpu, 0x05);
-    memory_write(mem, 0x0200, 0xB6);  /* LDX $10,Y */
-    memory_write(mem, 0x0201, 0x10);
-    memory_write(mem, 0x0015, 0x42);
+    bus_write(bus, 0x0200, 0xB6);  /* LDX $10,Y */
+    bus_write(bus, 0x0201, 0x10);
+    bus_write(bus, 0x0015, 0x42);
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -244,11 +244,11 @@ TEST(test_ldx_zpg_y) {
 
 TEST(test_ldx_abs) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
-    memory_write(mem, 0x0200, 0xAE);  /* LDX $1234 */
-    memory_write(mem, 0x0201, 0x34);
-    memory_write(mem, 0x0202, 0x12);
-    memory_write(mem, 0x1234, 0x42);
+    Bus* bus = cpu_get_bus(cpu);
+    bus_write(bus, 0x0200, 0xAE);  /* LDX $1234 */
+    bus_write(bus, 0x0201, 0x34);
+    bus_write(bus, 0x0202, 0x12);
+    bus_write(bus, 0x1234, 0x42);
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -260,12 +260,12 @@ TEST(test_ldx_abs) {
 
 TEST(test_ldx_abs_y) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_y(cpu, 0x04);
-    memory_write(mem, 0x0200, 0xBE);  /* LDX $1230,Y */
-    memory_write(mem, 0x0201, 0x30);
-    memory_write(mem, 0x0202, 0x12);
-    memory_write(mem, 0x1234, 0x42);
+    bus_write(bus, 0x0200, 0xBE);  /* LDX $1230,Y */
+    bus_write(bus, 0x0201, 0x30);
+    bus_write(bus, 0x0202, 0x12);
+    bus_write(bus, 0x1234, 0x42);
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -279,9 +279,9 @@ TEST(test_ldx_abs_y) {
 
 TEST(test_ldy_imm_positive) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
-    memory_write(mem, 0x0200, 0xA0);  /* LDY #$42 */
-    memory_write(mem, 0x0201, 0x42);
+    Bus* bus = cpu_get_bus(cpu);
+    bus_write(bus, 0x0200, 0xA0);  /* LDY #$42 */
+    bus_write(bus, 0x0201, 0x42);
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -294,9 +294,9 @@ TEST(test_ldy_imm_positive) {
 
 TEST(test_ldy_imm_zero) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
-    memory_write(mem, 0x0200, 0xA0);  /* LDY #$00 */
-    memory_write(mem, 0x0201, 0x00);
+    Bus* bus = cpu_get_bus(cpu);
+    bus_write(bus, 0x0200, 0xA0);  /* LDY #$00 */
+    bus_write(bus, 0x0201, 0x00);
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -309,9 +309,9 @@ TEST(test_ldy_imm_zero) {
 
 TEST(test_ldy_imm_negative) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
-    memory_write(mem, 0x0200, 0xA0);  /* LDY #$80 */
-    memory_write(mem, 0x0201, 0x80);
+    Bus* bus = cpu_get_bus(cpu);
+    bus_write(bus, 0x0200, 0xA0);  /* LDY #$80 */
+    bus_write(bus, 0x0201, 0x80);
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -324,10 +324,10 @@ TEST(test_ldy_imm_negative) {
 
 TEST(test_ldy_zpg) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
-    memory_write(mem, 0x0200, 0xA4);  /* LDY $10 */
-    memory_write(mem, 0x0201, 0x10);
-    memory_write(mem, 0x0010, 0x42);
+    Bus* bus = cpu_get_bus(cpu);
+    bus_write(bus, 0x0200, 0xA4);  /* LDY $10 */
+    bus_write(bus, 0x0201, 0x10);
+    bus_write(bus, 0x0010, 0x42);
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -339,11 +339,11 @@ TEST(test_ldy_zpg) {
 
 TEST(test_ldy_zpg_x) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_x(cpu, 0x05);
-    memory_write(mem, 0x0200, 0xB4);  /* LDY $10,X */
-    memory_write(mem, 0x0201, 0x10);
-    memory_write(mem, 0x0015, 0x42);
+    bus_write(bus, 0x0200, 0xB4);  /* LDY $10,X */
+    bus_write(bus, 0x0201, 0x10);
+    bus_write(bus, 0x0015, 0x42);
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -355,11 +355,11 @@ TEST(test_ldy_zpg_x) {
 
 TEST(test_ldy_abs) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
-    memory_write(mem, 0x0200, 0xAC);  /* LDY $1234 */
-    memory_write(mem, 0x0201, 0x34);
-    memory_write(mem, 0x0202, 0x12);
-    memory_write(mem, 0x1234, 0x42);
+    Bus* bus = cpu_get_bus(cpu);
+    bus_write(bus, 0x0200, 0xAC);  /* LDY $1234 */
+    bus_write(bus, 0x0201, 0x34);
+    bus_write(bus, 0x0202, 0x12);
+    bus_write(bus, 0x1234, 0x42);
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -371,12 +371,12 @@ TEST(test_ldy_abs) {
 
 TEST(test_ldy_abs_x) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_x(cpu, 0x04);
-    memory_write(mem, 0x0200, 0xBC);  /* LDY $1230,X */
-    memory_write(mem, 0x0201, 0x30);
-    memory_write(mem, 0x0202, 0x12);
-    memory_write(mem, 0x1234, 0x42);
+    bus_write(bus, 0x0200, 0xBC);  /* LDY $1230,X */
+    bus_write(bus, 0x0201, 0x30);
+    bus_write(bus, 0x0202, 0x12);
+    bus_write(bus, 0x1234, 0x42);
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -390,14 +390,14 @@ TEST(test_ldy_abs_x) {
 
 TEST(test_sta_zpg) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_a(cpu, 0x42);
-    memory_write(mem, 0x0200, 0x85);  /* STA $10 */
-    memory_write(mem, 0x0201, 0x10);
+    bus_write(bus, 0x0200, 0x85);  /* STA $10 */
+    bus_write(bus, 0x0201, 0x10);
 
     uint8_t cycles = cpu_step(cpu);
 
-    CHECK(memory_read(mem, 0x0010) == 0x42);
+    CHECK(bus_read(bus, 0x0010) == 0x42);
     CHECK(cycles == 3);
     check_pc(cpu, 0x0202);
     cpu_destroy(cpu);
@@ -405,15 +405,15 @@ TEST(test_sta_zpg) {
 
 TEST(test_sta_zpg_x) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_a(cpu, 0x42);
     cpu_set_x(cpu, 0x05);
-    memory_write(mem, 0x0200, 0x95);  /* STA $10,X */
-    memory_write(mem, 0x0201, 0x10);
+    bus_write(bus, 0x0200, 0x95);  /* STA $10,X */
+    bus_write(bus, 0x0201, 0x10);
 
     uint8_t cycles = cpu_step(cpu);
 
-    CHECK(memory_read(mem, 0x0015) == 0x42);
+    CHECK(bus_read(bus, 0x0015) == 0x42);
     CHECK(cycles == 4);
     check_pc(cpu, 0x0202);
     cpu_destroy(cpu);
@@ -421,15 +421,15 @@ TEST(test_sta_zpg_x) {
 
 TEST(test_sta_abs) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_a(cpu, 0x42);
-    memory_write(mem, 0x0200, 0x8D);  /* STA $1234 */
-    memory_write(mem, 0x0201, 0x34);
-    memory_write(mem, 0x0202, 0x12);
+    bus_write(bus, 0x0200, 0x8D);  /* STA $1234 */
+    bus_write(bus, 0x0201, 0x34);
+    bus_write(bus, 0x0202, 0x12);
 
     uint8_t cycles = cpu_step(cpu);
 
-    CHECK(memory_read(mem, 0x1234) == 0x42);
+    CHECK(bus_read(bus, 0x1234) == 0x42);
     CHECK(cycles == 4);
     check_pc(cpu, 0x0203);
     cpu_destroy(cpu);
@@ -437,16 +437,16 @@ TEST(test_sta_abs) {
 
 TEST(test_sta_abs_x) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_a(cpu, 0x42);
     cpu_set_x(cpu, 0x04);
-    memory_write(mem, 0x0200, 0x9D);  /* STA $1230,X */
-    memory_write(mem, 0x0201, 0x30);
-    memory_write(mem, 0x0202, 0x12);
+    bus_write(bus, 0x0200, 0x9D);  /* STA $1230,X */
+    bus_write(bus, 0x0201, 0x30);
+    bus_write(bus, 0x0202, 0x12);
 
     uint8_t cycles = cpu_step(cpu);
 
-    CHECK(memory_read(mem, 0x1234) == 0x42);
+    CHECK(bus_read(bus, 0x1234) == 0x42);
     CHECK(cycles == 5);  /* Stores always take 5 cycles for ABS,X */
     check_pc(cpu, 0x0203);
     cpu_destroy(cpu);
@@ -454,16 +454,16 @@ TEST(test_sta_abs_x) {
 
 TEST(test_sta_abs_y) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_a(cpu, 0x42);
     cpu_set_y(cpu, 0x04);
-    memory_write(mem, 0x0200, 0x99);  /* STA $1230,Y */
-    memory_write(mem, 0x0201, 0x30);
-    memory_write(mem, 0x0202, 0x12);
+    bus_write(bus, 0x0200, 0x99);  /* STA $1230,Y */
+    bus_write(bus, 0x0201, 0x30);
+    bus_write(bus, 0x0202, 0x12);
 
     uint8_t cycles = cpu_step(cpu);
 
-    CHECK(memory_read(mem, 0x1234) == 0x42);
+    CHECK(bus_read(bus, 0x1234) == 0x42);
     CHECK(cycles == 5);  /* Stores always take 5 cycles for ABS,Y */
     check_pc(cpu, 0x0203);
     cpu_destroy(cpu);
@@ -471,17 +471,17 @@ TEST(test_sta_abs_y) {
 
 TEST(test_sta_ind_x) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_a(cpu, 0x42);
     cpu_set_x(cpu, 0x04);
-    memory_write(mem, 0x0200, 0x81);  /* STA ($10,X) */
-    memory_write(mem, 0x0201, 0x10);
-    memory_write(mem, 0x0014, 0x34);  /* Target addr low */
-    memory_write(mem, 0x0015, 0x12);  /* Target addr high */
+    bus_write(bus, 0x0200, 0x81);  /* STA ($10,X) */
+    bus_write(bus, 0x0201, 0x10);
+    bus_write(bus, 0x0014, 0x34);  /* Target addr low */
+    bus_write(bus, 0x0015, 0x12);  /* Target addr high */
 
     uint8_t cycles = cpu_step(cpu);
 
-    CHECK(memory_read(mem, 0x1234) == 0x42);
+    CHECK(bus_read(bus, 0x1234) == 0x42);
     CHECK(cycles == 6);
     check_pc(cpu, 0x0202);
     cpu_destroy(cpu);
@@ -489,17 +489,17 @@ TEST(test_sta_ind_x) {
 
 TEST(test_sta_ind_y) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_a(cpu, 0x42);
     cpu_set_y(cpu, 0x04);
-    memory_write(mem, 0x0200, 0x91);  /* STA ($10),Y */
-    memory_write(mem, 0x0201, 0x10);
-    memory_write(mem, 0x0010, 0x30);  /* Base addr low */
-    memory_write(mem, 0x0011, 0x12);  /* Base addr high */
+    bus_write(bus, 0x0200, 0x91);  /* STA ($10),Y */
+    bus_write(bus, 0x0201, 0x10);
+    bus_write(bus, 0x0010, 0x30);  /* Base addr low */
+    bus_write(bus, 0x0011, 0x12);  /* Base addr high */
 
     uint8_t cycles = cpu_step(cpu);
 
-    CHECK(memory_read(mem, 0x1234) == 0x42);
+    CHECK(bus_read(bus, 0x1234) == 0x42);
     CHECK(cycles == 6);  /* Stores always take 6 cycles for (IND),Y */
     check_pc(cpu, 0x0202);
     cpu_destroy(cpu);
@@ -507,11 +507,11 @@ TEST(test_sta_ind_y) {
 
 TEST(test_sta_no_flag_change) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_a(cpu, 0x00);  /* Zero value */
     cpu_set_status(cpu, 0x00);  /* Clear all flags */
-    memory_write(mem, 0x0200, 0x85);  /* STA $10 */
-    memory_write(mem, 0x0201, 0x10);
+    bus_write(bus, 0x0200, 0x85);  /* STA $10 */
+    bus_write(bus, 0x0201, 0x10);
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -526,14 +526,14 @@ TEST(test_sta_no_flag_change) {
 
 TEST(test_stx_zpg) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_x(cpu, 0x42);
-    memory_write(mem, 0x0200, 0x86);  /* STX $10 */
-    memory_write(mem, 0x0201, 0x10);
+    bus_write(bus, 0x0200, 0x86);  /* STX $10 */
+    bus_write(bus, 0x0201, 0x10);
 
     uint8_t cycles = cpu_step(cpu);
 
-    CHECK(memory_read(mem, 0x0010) == 0x42);
+    CHECK(bus_read(bus, 0x0010) == 0x42);
     CHECK(cycles == 3);
     check_pc(cpu, 0x0202);
     cpu_destroy(cpu);
@@ -541,15 +541,15 @@ TEST(test_stx_zpg) {
 
 TEST(test_stx_zpg_y) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_x(cpu, 0x42);
     cpu_set_y(cpu, 0x05);
-    memory_write(mem, 0x0200, 0x96);  /* STX $10,Y */
-    memory_write(mem, 0x0201, 0x10);
+    bus_write(bus, 0x0200, 0x96);  /* STX $10,Y */
+    bus_write(bus, 0x0201, 0x10);
 
     uint8_t cycles = cpu_step(cpu);
 
-    CHECK(memory_read(mem, 0x0015) == 0x42);
+    CHECK(bus_read(bus, 0x0015) == 0x42);
     CHECK(cycles == 4);
     check_pc(cpu, 0x0202);
     cpu_destroy(cpu);
@@ -557,15 +557,15 @@ TEST(test_stx_zpg_y) {
 
 TEST(test_stx_abs) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_x(cpu, 0x42);
-    memory_write(mem, 0x0200, 0x8E);  /* STX $1234 */
-    memory_write(mem, 0x0201, 0x34);
-    memory_write(mem, 0x0202, 0x12);
+    bus_write(bus, 0x0200, 0x8E);  /* STX $1234 */
+    bus_write(bus, 0x0201, 0x34);
+    bus_write(bus, 0x0202, 0x12);
 
     uint8_t cycles = cpu_step(cpu);
 
-    CHECK(memory_read(mem, 0x1234) == 0x42);
+    CHECK(bus_read(bus, 0x1234) == 0x42);
     CHECK(cycles == 4);
     check_pc(cpu, 0x0203);
     cpu_destroy(cpu);
@@ -575,14 +575,14 @@ TEST(test_stx_abs) {
 
 TEST(test_sty_zpg) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_y(cpu, 0x42);
-    memory_write(mem, 0x0200, 0x84);  /* STY $10 */
-    memory_write(mem, 0x0201, 0x10);
+    bus_write(bus, 0x0200, 0x84);  /* STY $10 */
+    bus_write(bus, 0x0201, 0x10);
 
     uint8_t cycles = cpu_step(cpu);
 
-    CHECK(memory_read(mem, 0x0010) == 0x42);
+    CHECK(bus_read(bus, 0x0010) == 0x42);
     CHECK(cycles == 3);
     check_pc(cpu, 0x0202);
     cpu_destroy(cpu);
@@ -590,15 +590,15 @@ TEST(test_sty_zpg) {
 
 TEST(test_sty_zpg_x) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_y(cpu, 0x42);
     cpu_set_x(cpu, 0x05);
-    memory_write(mem, 0x0200, 0x94);  /* STY $10,X */
-    memory_write(mem, 0x0201, 0x10);
+    bus_write(bus, 0x0200, 0x94);  /* STY $10,X */
+    bus_write(bus, 0x0201, 0x10);
 
     uint8_t cycles = cpu_step(cpu);
 
-    CHECK(memory_read(mem, 0x0015) == 0x42);
+    CHECK(bus_read(bus, 0x0015) == 0x42);
     CHECK(cycles == 4);
     check_pc(cpu, 0x0202);
     cpu_destroy(cpu);
@@ -606,15 +606,15 @@ TEST(test_sty_zpg_x) {
 
 TEST(test_sty_abs) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_y(cpu, 0x42);
-    memory_write(mem, 0x0200, 0x8C);  /* STY $1234 */
-    memory_write(mem, 0x0201, 0x34);
-    memory_write(mem, 0x0202, 0x12);
+    bus_write(bus, 0x0200, 0x8C);  /* STY $1234 */
+    bus_write(bus, 0x0201, 0x34);
+    bus_write(bus, 0x0202, 0x12);
 
     uint8_t cycles = cpu_step(cpu);
 
-    CHECK(memory_read(mem, 0x1234) == 0x42);
+    CHECK(bus_read(bus, 0x1234) == 0x42);
     CHECK(cycles == 4);
     check_pc(cpu, 0x0203);
     cpu_destroy(cpu);
@@ -625,12 +625,12 @@ TEST(test_sty_abs) {
 /* LDA Absolute,X with page cross: base=$12FF + X=$01 = $1300 (crosses page) */
 TEST(test_lda_abs_x_page_cross) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_x(cpu, 0x01);
-    memory_write(mem, 0x0200, 0xBD);  /* LDA $12FF,X */
-    memory_write(mem, 0x0201, 0xFF);
-    memory_write(mem, 0x0202, 0x12);
-    memory_write(mem, 0x1300, 0x42);  /* Value at $12FF+$01 */
+    bus_write(bus, 0x0200, 0xBD);  /* LDA $12FF,X */
+    bus_write(bus, 0x0201, 0xFF);
+    bus_write(bus, 0x0202, 0x12);
+    bus_write(bus, 0x1300, 0x42);  /* Value at $12FF+$01 */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -643,12 +643,12 @@ TEST(test_lda_abs_x_page_cross) {
 /* LDA Absolute,Y with page cross: base=$12FF + Y=$01 = $1300 (crosses page) */
 TEST(test_lda_abs_y_page_cross) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_y(cpu, 0x01);
-    memory_write(mem, 0x0200, 0xB9);  /* LDA $12FF,Y */
-    memory_write(mem, 0x0201, 0xFF);
-    memory_write(mem, 0x0202, 0x12);
-    memory_write(mem, 0x1300, 0x42);  /* Value at $12FF+$01 */
+    bus_write(bus, 0x0200, 0xB9);  /* LDA $12FF,Y */
+    bus_write(bus, 0x0201, 0xFF);
+    bus_write(bus, 0x0202, 0x12);
+    bus_write(bus, 0x1300, 0x42);  /* Value at $12FF+$01 */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -661,13 +661,13 @@ TEST(test_lda_abs_y_page_cross) {
 /* LDA (Indirect),Y with page cross: base=$1320 + Y=$FF = $141F (crosses page) */
 TEST(test_lda_ind_y_page_cross) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_y(cpu, 0xFF);
-    memory_write(mem, 0x0200, 0xB1);  /* LDA ($10),Y */
-    memory_write(mem, 0x0201, 0x10);
-    memory_write(mem, 0x0010, 0x20);  /* Base addr low: $1320 */
-    memory_write(mem, 0x0011, 0x13);  /* Base addr high */
-    memory_write(mem, 0x141F, 0x42);  /* Value at $1320+$FF */
+    bus_write(bus, 0x0200, 0xB1);  /* LDA ($10),Y */
+    bus_write(bus, 0x0201, 0x10);
+    bus_write(bus, 0x0010, 0x20);  /* Base addr low: $1320 */
+    bus_write(bus, 0x0011, 0x13);  /* Base addr high */
+    bus_write(bus, 0x141F, 0x42);  /* Value at $1320+$FF */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -680,12 +680,12 @@ TEST(test_lda_ind_y_page_cross) {
 /* LDX Absolute,Y with page cross: base=$12FF + Y=$01 = $1300 */
 TEST(test_ldx_abs_y_page_cross) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_y(cpu, 0x01);
-    memory_write(mem, 0x0200, 0xBE);  /* LDX $12FF,Y */
-    memory_write(mem, 0x0201, 0xFF);
-    memory_write(mem, 0x0202, 0x12);
-    memory_write(mem, 0x1300, 0x42);
+    bus_write(bus, 0x0200, 0xBE);  /* LDX $12FF,Y */
+    bus_write(bus, 0x0201, 0xFF);
+    bus_write(bus, 0x0202, 0x12);
+    bus_write(bus, 0x1300, 0x42);
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -698,12 +698,12 @@ TEST(test_ldx_abs_y_page_cross) {
 /* LDY Absolute,X with page cross: base=$12FF + X=$01 = $1300 */
 TEST(test_ldy_abs_x_page_cross) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_x(cpu, 0x01);
-    memory_write(mem, 0x0200, 0xBC);  /* LDY $12FF,X */
-    memory_write(mem, 0x0201, 0xFF);
-    memory_write(mem, 0x0202, 0x12);
-    memory_write(mem, 0x1300, 0x42);
+    bus_write(bus, 0x0200, 0xBC);  /* LDY $12FF,X */
+    bus_write(bus, 0x0201, 0xFF);
+    bus_write(bus, 0x0202, 0x12);
+    bus_write(bus, 0x1300, 0x42);
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -715,16 +715,16 @@ TEST(test_ldy_abs_x_page_cross) {
 
 TEST(test_sta_abs_x_page_cross) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_a(cpu, 0x42);
     cpu_set_x(cpu, 0x01);
-    memory_write(mem, 0x0200, 0x9D);  /* STA $12FF,X */
-    memory_write(mem, 0x0201, 0xFF);
-    memory_write(mem, 0x0202, 0x12);
+    bus_write(bus, 0x0200, 0x9D);  /* STA $12FF,X */
+    bus_write(bus, 0x0201, 0xFF);
+    bus_write(bus, 0x0202, 0x12);
 
     uint8_t cycles = cpu_step(cpu);
 
-    CHECK(memory_read(mem, 0x1300) == 0x42);
+    CHECK(bus_read(bus, 0x1300) == 0x42);
     CHECK(cycles == 5);  /* Stores always 5 cycles - no optimization */
     check_pc(cpu, 0x0203);
     cpu_destroy(cpu);

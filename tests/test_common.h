@@ -2,6 +2,7 @@
 #define TEST_COMMON_H
 
 #include "cpu.h"
+#include "bus.h"
 #include "util.h"
 #include <stdio.h>
 

@@ -1,5 +1,5 @@
 #include "test_common.h"
-#include "memory.h"
+#include "bus.h"
 
 /*
  * Integration Tests - Small 6502 Programs
@@ -32,14 +32,14 @@ static uint16_t run_program(CPU* cpu, int max_instructions) {
  */
 TEST(test_counter_loop) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
 
     uint8_t prog[] = {
         0xA2, 0x05,     /* LDX #$05 */
         0xCA,           /* DEX */
         0xD0, 0xFD      /* BNE -3 (back to DEX) */
     };
-    memory_load(mem, 0x0200, prog, sizeof(prog));
+    bus_load(bus, 0x0200, prog, sizeof(prog));
 
     /* Run: LDX + (DEX + BNE)*5 = 1 + 10 = 11 instructions */
     run_program(cpu, 11);
@@ -65,7 +65,7 @@ TEST(test_counter_loop) {
  */
 TEST(test_memory_fill) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
 
     uint8_t prog[] = {
         0xA2, 0x04,         /* LDX #$04 */
@@ -74,17 +74,17 @@ TEST(test_memory_fill) {
         0x9D, 0x00, 0x03,   /* STA $0300,X */
         0xD0, 0xFA          /* BNE -6 (back to DEX) */
     };
-    memory_load(mem, 0x0200, prog, sizeof(prog));
+    bus_load(bus, 0x0200, prog, sizeof(prog));
 
     /* Run: LDX + LDA + (DEX + STA + BNE)*4 = 2 + 12 = 14 instructions */
     run_program(cpu, 14);
 
     CHECK_EQ(cpu_get_x(cpu), 0x00);
     CHECK_EQ(cpu_get_a(cpu), 0xAA);
-    CHECK_EQ(memory_read(mem, 0x0300), 0xAA);
-    CHECK_EQ(memory_read(mem, 0x0301), 0xAA);
-    CHECK_EQ(memory_read(mem, 0x0302), 0xAA);
-    CHECK_EQ(memory_read(mem, 0x0303), 0xAA);
+    CHECK_EQ(bus_read(bus, 0x0300), 0xAA);
+    CHECK_EQ(bus_read(bus, 0x0301), 0xAA);
+    CHECK_EQ(bus_read(bus, 0x0302), 0xAA);
+    CHECK_EQ(bus_read(bus, 0x0303), 0xAA);
 
     cpu_destroy(cpu);
 }
@@ -102,7 +102,7 @@ TEST(test_memory_fill) {
  */
 TEST(test_multiply_by_shift) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
 
     uint8_t prog[] = {
         0xA9, 0x15,     /* LDA #$15 */
@@ -111,7 +111,7 @@ TEST(test_multiply_by_shift) {
         0xCA,           /* DEX */
         0xD0, 0xFC      /* BNE -4 (back to ASL) */
     };
-    memory_load(mem, 0x0200, prog, sizeof(prog));
+    bus_load(bus, 0x0200, prog, sizeof(prog));
 
     /* Run: LDA + LDX + (ASL + DEX + BNE)*2 = 2 + 6 = 8 instructions */
     run_program(cpu, 8);
@@ -137,11 +137,11 @@ TEST(test_multiply_by_shift) {
  */
 TEST(test_add_two_numbers) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
 
     /* Set up operands in zero page */
-    memory_write(mem, 0x0010, 0x30);
-    memory_write(mem, 0x0011, 0x25);
+    bus_write(bus, 0x0010, 0x30);
+    bus_write(bus, 0x0011, 0x25);
 
     uint8_t prog[] = {
         0x18,           /* CLC */
@@ -149,12 +149,12 @@ TEST(test_add_two_numbers) {
         0x65, 0x11,     /* ADC $11 */
         0x85, 0x12      /* STA $12 */
     };
-    memory_load(mem, 0x0200, prog, sizeof(prog));
+    bus_load(bus, 0x0200, prog, sizeof(prog));
 
     run_program(cpu, 4);
 
     CHECK_EQ(cpu_get_a(cpu), 0x55);
-    CHECK_EQ(memory_read(mem, 0x0012), 0x55);
+    CHECK_EQ(bus_read(bus, 0x0012), 0x55);
     CHECK(!(cpu_get_status(cpu) & FLAG_C), "No carry");
     CHECK(!(cpu_get_status(cpu) & FLAG_Z), "Not zero");
     CHECK(!(cpu_get_status(cpu) & FLAG_N), "Not negative");
@@ -174,10 +174,10 @@ TEST(test_add_two_numbers) {
  */
 TEST(test_add_with_carry) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
 
-    memory_write(mem, 0x0010, 0xFF);
-    memory_write(mem, 0x0011, 0x02);
+    bus_write(bus, 0x0010, 0xFF);
+    bus_write(bus, 0x0011, 0x02);
 
     uint8_t prog[] = {
         0x18,           /* CLC */
@@ -185,12 +185,12 @@ TEST(test_add_with_carry) {
         0x65, 0x11,     /* ADC $11 */
         0x85, 0x12      /* STA $12 */
     };
-    memory_load(mem, 0x0200, prog, sizeof(prog));
+    bus_load(bus, 0x0200, prog, sizeof(prog));
 
     run_program(cpu, 4);
 
     CHECK_EQ(cpu_get_a(cpu), 0x01);
-    CHECK_EQ(memory_read(mem, 0x0012), 0x01);
+    CHECK_EQ(bus_read(bus, 0x0012), 0x01);
     CHECK(cpu_get_status(cpu) & FLAG_C, "Carry should be set");
     CHECK(!(cpu_get_status(cpu) & FLAG_Z), "Not zero");
     CHECK(!(cpu_get_status(cpu) & FLAG_N), "Not negative");
@@ -209,14 +209,14 @@ TEST(test_add_with_carry) {
  */
 TEST(test_signed_overflow) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
 
     uint8_t prog[] = {
         0x18,           /* CLC */
         0xA9, 0x7F,     /* LDA #$7F */
         0x69, 0x01      /* ADC #$01 */
     };
-    memory_load(mem, 0x0200, prog, sizeof(prog));
+    bus_load(bus, 0x0200, prog, sizeof(prog));
 
     run_program(cpu, 3);
 
@@ -245,7 +245,7 @@ TEST(test_signed_overflow) {
  */
 TEST(test_compare_and_branch) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
 
     uint8_t prog[] = {
         0xA9, 0x50,         /* LDA #$50 */
@@ -256,12 +256,12 @@ TEST(test_compare_and_branch) {
         0xA9, 0xFF,         /* LDA #$FF (equal label) */
         0x85, 0x30          /* STA $30 (done label) */
     };
-    memory_load(mem, 0x0200, prog, sizeof(prog));
+    bus_load(bus, 0x0200, prog, sizeof(prog));
 
     run_program(cpu, 5);  /* LDA, CMP, BEQ, LDA, STA */
 
     CHECK_EQ(cpu_get_a(cpu), 0xFF);
-    CHECK_EQ(memory_read(mem, 0x0030), 0xFF);
+    CHECK_EQ(bus_read(bus, 0x0030), 0xFF);
 
     cpu_destroy(cpu);
 }
@@ -285,7 +285,7 @@ TEST(test_compare_and_branch) {
  */
 TEST(test_push_pull_sequence) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     uint8_t initial_sp = cpu_get_sp(cpu);
 
     uint8_t prog[] = {
@@ -299,7 +299,7 @@ TEST(test_push_pull_sequence) {
         0x68,           /* PLA -> $22 */
         0x68            /* PLA -> $11 */
     };
-    memory_load(mem, 0x0200, prog, sizeof(prog));
+    bus_load(bus, 0x0200, prog, sizeof(prog));
 
     /* Run all 10 instructions:
      * LDA, PHA, LDA, PHA, LDA, PHA, PLA, PLA, PLA = 9 ops
@@ -335,7 +335,7 @@ TEST(test_push_pull_sequence) {
  */
 TEST(test_subroutine_call) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     uint8_t initial_sp = cpu_get_sp(cpu);
 
     uint8_t prog[] = {
@@ -347,12 +347,12 @@ TEST(test_subroutine_call) {
         0x60,               /* $020C: RTS */
         0xEA                /* $020D: NOP (done) */
     };
-    memory_load(mem, 0x0200, prog, sizeof(prog));
+    bus_load(bus, 0x0200, prog, sizeof(prog));
 
     run_program(cpu, 6);  /* LDA, JSR, LDA, RTS, STA, JMP */
 
     CHECK_EQ(cpu_get_a(cpu), 0x42);
-    CHECK_EQ(memory_read(mem, 0x0020), 0x42);
+    CHECK_EQ(bus_read(bus, 0x0020), 0x42);
     CHECK_EQ(cpu_get_sp(cpu), initial_sp);
     check_pc(cpu, 0x020D);
 
@@ -372,7 +372,7 @@ TEST(test_subroutine_call) {
  */
 TEST(test_flag_preservation) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
 
     uint8_t prog[] = {
         0x38,           /* SEC (C = 1) */
@@ -380,7 +380,7 @@ TEST(test_flag_preservation) {
         0x18,           /* CLC (C = 0) */
         0x28            /* PLP */
     };
-    memory_load(mem, 0x0200, prog, sizeof(prog));
+    bus_load(bus, 0x0200, prog, sizeof(prog));
 
     run_program(cpu, 2);  /* SEC, PHP */
     CHECK(cpu_get_status(cpu) & FLAG_C, "C should be set after SEC");
@@ -411,19 +411,19 @@ TEST(test_flag_preservation) {
  */
 TEST(test_indirect_indexed_copy) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
 
     /* Set up pointers in zero page (little-endian) */
-    memory_write(mem, 0x0010, 0x00);  /* src ptr low */
-    memory_write(mem, 0x0011, 0x03);  /* src ptr high -> $0300 */
-    memory_write(mem, 0x0012, 0x00);  /* dst ptr low */
-    memory_write(mem, 0x0013, 0x04);  /* dst ptr high -> $0400 */
+    bus_write(bus, 0x0010, 0x00);  /* src ptr low */
+    bus_write(bus, 0x0011, 0x03);  /* src ptr high -> $0300 */
+    bus_write(bus, 0x0012, 0x00);  /* dst ptr low */
+    bus_write(bus, 0x0013, 0x04);  /* dst ptr high -> $0400 */
 
     /* Set up source data */
-    memory_write(mem, 0x0300, 0xDE);
-    memory_write(mem, 0x0301, 0xAD);
-    memory_write(mem, 0x0302, 0xBE);
-    memory_write(mem, 0x0303, 0xEF);
+    bus_write(bus, 0x0300, 0xDE);
+    bus_write(bus, 0x0301, 0xAD);
+    bus_write(bus, 0x0302, 0xBE);
+    bus_write(bus, 0x0303, 0xEF);
 
     uint8_t prog[] = {
         0xA0, 0x03,     /* LDY #$03 */
@@ -432,15 +432,15 @@ TEST(test_indirect_indexed_copy) {
         0x88,           /* DEY */
         0x10, 0xF9      /* BPL -7 (back to LDA) */
     };
-    memory_load(mem, 0x0200, prog, sizeof(prog));
+    bus_load(bus, 0x0200, prog, sizeof(prog));
 
     /* Run: LDY + (LDA + STA + DEY + BPL)*4 = 1 + 16 = 17 instructions */
     run_program(cpu, 17);
 
-    CHECK_EQ(memory_read(mem, 0x0400), 0xDE);
-    CHECK_EQ(memory_read(mem, 0x0401), 0xAD);
-    CHECK_EQ(memory_read(mem, 0x0402), 0xBE);
-    CHECK_EQ(memory_read(mem, 0x0403), 0xEF);
+    CHECK_EQ(bus_read(bus, 0x0400), 0xDE);
+    CHECK_EQ(bus_read(bus, 0x0401), 0xAD);
+    CHECK_EQ(bus_read(bus, 0x0402), 0xBE);
+    CHECK_EQ(bus_read(bus, 0x0403), 0xEF);
     CHECK_EQ(cpu_get_y(cpu), 0xFF);  /* Wrapped to $FF after DEY from 0 */
     CHECK(cpu_get_status(cpu) & FLAG_N, "N set (Y = $FF)");
 
@@ -491,17 +491,17 @@ TEST(test_indirect_indexed_copy) {
  */
 TEST(test_stress_bubble_sort) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
 
     /* Unsorted data: 64, 25, 12, 22, 11, 90, 42, 8 */
-    memory_write(mem, 0x0050, 64);
-    memory_write(mem, 0x0051, 25);
-    memory_write(mem, 0x0052, 12);
-    memory_write(mem, 0x0053, 22);
-    memory_write(mem, 0x0054, 11);
-    memory_write(mem, 0x0055, 90);
-    memory_write(mem, 0x0056, 42);
-    memory_write(mem, 0x0057, 8);
+    bus_write(bus, 0x0050, 64);
+    bus_write(bus, 0x0051, 25);
+    bus_write(bus, 0x0052, 12);
+    bus_write(bus, 0x0053, 22);
+    bus_write(bus, 0x0054, 11);
+    bus_write(bus, 0x0055, 90);
+    bus_write(bus, 0x0056, 42);
+    bus_write(bus, 0x0057, 8);
 
     uint8_t prog[] = {
         /* $0200 */ 0xA9, 0x07,         /* LDA #$07 */
@@ -537,26 +537,26 @@ TEST(test_stress_bubble_sort) {
         /* $022C */ 0x00,               /* BRK (padding) */
         /* $022D */ 0x00                /* BRK (from BEQ done) */
     };
-    memory_load(mem, 0x0200, prog, sizeof(prog));
+    bus_load(bus, 0x0200, prog, sizeof(prog));
 
     /* Run until BRK (max 2000 instructions for safety) */
     int instructions = 0;
     while (instructions < 2000) {
-        uint8_t opcode = memory_read(mem, cpu_get_pc(cpu));
+        uint8_t opcode = bus_read(bus, cpu_get_pc(cpu));
         if (opcode == 0x00) break;  /* BRK */
         cpu_step(cpu);
         instructions++;
     }
 
     /* Verify sorted: 8, 11, 12, 22, 25, 42, 64, 90 */
-    CHECK_EQ(memory_read(mem, 0x0050), 8);
-    CHECK_EQ(memory_read(mem, 0x0051), 11);
-    CHECK_EQ(memory_read(mem, 0x0052), 12);
-    CHECK_EQ(memory_read(mem, 0x0053), 22);
-    CHECK_EQ(memory_read(mem, 0x0054), 25);
-    CHECK_EQ(memory_read(mem, 0x0055), 42);
-    CHECK_EQ(memory_read(mem, 0x0056), 64);
-    CHECK_EQ(memory_read(mem, 0x0057), 90);
+    CHECK_EQ(bus_read(bus, 0x0050), 8);
+    CHECK_EQ(bus_read(bus, 0x0051), 11);
+    CHECK_EQ(bus_read(bus, 0x0052), 12);
+    CHECK_EQ(bus_read(bus, 0x0053), 22);
+    CHECK_EQ(bus_read(bus, 0x0054), 25);
+    CHECK_EQ(bus_read(bus, 0x0055), 42);
+    CHECK_EQ(bus_read(bus, 0x0056), 64);
+    CHECK_EQ(bus_read(bus, 0x0057), 90);
 
     /* Verify reasonable instruction count (bubble sort ~300-500 for this data) */
     CHECK(instructions > 100, "Should execute many instructions");
@@ -588,7 +588,7 @@ TEST(test_stress_bubble_sort) {
  */
 TEST(test_stress_fibonacci) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
 
     uint8_t prog[] = {
         /* $0200 */ 0xA9, 0x01,         /* LDA #$01 */
@@ -605,26 +605,26 @@ TEST(test_stress_fibonacci) {
         /* $0212 */ 0xD0, 0xF4,         /* BNE loop (-12 -> $0208) */
         /* $0214 */ 0x00                /* BRK */
     };
-    memory_load(mem, 0x0200, prog, sizeof(prog));
+    bus_load(bus, 0x0200, prog, sizeof(prog));
 
     /* Run until BRK */
-    while (memory_read(mem, cpu_get_pc(cpu)) != 0x00) {
+    while (bus_read(bus, cpu_get_pc(cpu)) != 0x00) {
         cpu_step(cpu);
     }
 
     /* Verify Fibonacci sequence: 1,1,2,3,5,8,13,21,34,55,89,144 */
-    CHECK_EQ(memory_read(mem, 0x0060), 1);
-    CHECK_EQ(memory_read(mem, 0x0061), 1);
-    CHECK_EQ(memory_read(mem, 0x0062), 2);
-    CHECK_EQ(memory_read(mem, 0x0063), 3);
-    CHECK_EQ(memory_read(mem, 0x0064), 5);
-    CHECK_EQ(memory_read(mem, 0x0065), 8);
-    CHECK_EQ(memory_read(mem, 0x0066), 13);
-    CHECK_EQ(memory_read(mem, 0x0067), 21);
-    CHECK_EQ(memory_read(mem, 0x0068), 34);
-    CHECK_EQ(memory_read(mem, 0x0069), 55);
-    CHECK_EQ(memory_read(mem, 0x006A), 89);
-    CHECK_EQ(memory_read(mem, 0x006B), 144);
+    CHECK_EQ(bus_read(bus, 0x0060), 1);
+    CHECK_EQ(bus_read(bus, 0x0061), 1);
+    CHECK_EQ(bus_read(bus, 0x0062), 2);
+    CHECK_EQ(bus_read(bus, 0x0063), 3);
+    CHECK_EQ(bus_read(bus, 0x0064), 5);
+    CHECK_EQ(bus_read(bus, 0x0065), 8);
+    CHECK_EQ(bus_read(bus, 0x0066), 13);
+    CHECK_EQ(bus_read(bus, 0x0067), 21);
+    CHECK_EQ(bus_read(bus, 0x0068), 34);
+    CHECK_EQ(bus_read(bus, 0x0069), 55);
+    CHECK_EQ(bus_read(bus, 0x006A), 89);
+    CHECK_EQ(bus_read(bus, 0x006B), 144);
 
     cpu_destroy(cpu);
 }
@@ -661,7 +661,7 @@ TEST(test_stress_fibonacci) {
  */
 TEST(test_stress_nested_calls) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     uint8_t initial_sp = cpu_get_sp(cpu);
 
     uint8_t prog[] = {
@@ -697,20 +697,20 @@ TEST(test_stress_nested_calls) {
         /* $022E */ 0x85, 0x73,         /* STA $73 */
         /* $0230 */ 0x60                /* RTS */
     };
-    memory_load(mem, 0x0200, prog, sizeof(prog));
+    bus_load(bus, 0x0200, prog, sizeof(prog));
 
     /* Run until BRK */
     int instructions = 0;
-    while (memory_read(mem, cpu_get_pc(cpu)) != 0x00 && instructions < 100) {
+    while (bus_read(bus, cpu_get_pc(cpu)) != 0x00 && instructions < 100) {
         cpu_step(cpu);
         instructions++;
     }
 
     /* Verify all subroutines executed and returned correctly */
-    CHECK_EQ(memory_read(mem, 0x0070), 0x11);
-    CHECK_EQ(memory_read(mem, 0x0071), 0x22);
-    CHECK_EQ(memory_read(mem, 0x0072), 0x33);
-    CHECK_EQ(memory_read(mem, 0x0073), 0x44);
+    CHECK_EQ(bus_read(bus, 0x0070), 0x11);
+    CHECK_EQ(bus_read(bus, 0x0071), 0x22);
+    CHECK_EQ(bus_read(bus, 0x0072), 0x33);
+    CHECK_EQ(bus_read(bus, 0x0073), 0x44);
 
     /* Stack should be restored */
     CHECK_EQ(cpu_get_sp(cpu), initial_sp);
@@ -743,20 +743,20 @@ TEST(test_stress_nested_calls) {
  */
 TEST(test_stress_memcmp) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
 
     /* Block 1: 0-15 */
     for (int i = 0; i < 16; i++) {
-        memory_write(mem, 0x0300 + i, i);
+        bus_write(bus, 0x0300 + i, i);
     }
 
     /* Block 2: same as block 1, except positions 3, 7, 11 are different */
     for (int i = 0; i < 16; i++) {
-        memory_write(mem, 0x0310 + i, i);
+        bus_write(bus, 0x0310 + i, i);
     }
-    memory_write(mem, 0x0313, 0xFF);  /* difference at index 3 */
-    memory_write(mem, 0x0317, 0xFF);  /* difference at index 7 */
-    memory_write(mem, 0x031B, 0xFF);  /* difference at index 11 */
+    bus_write(bus, 0x0313, 0xFF);  /* difference at index 3 */
+    bus_write(bus, 0x0317, 0xFF);  /* difference at index 7 */
+    bus_write(bus, 0x031B, 0xFF);  /* difference at index 11 */
 
     uint8_t prog[] = {
         /* $0200 */ 0xA9, 0x00,             /* LDA #$00 */
@@ -772,15 +772,15 @@ TEST(test_stress_memcmp) {
         /* $0211 */ 0x10, 0xF3,             /* BPL loop (-13 -> $0206) */
         /* $0213 */ 0x00                    /* BRK */
     };
-    memory_load(mem, 0x0200, prog, sizeof(prog));
+    bus_load(bus, 0x0200, prog, sizeof(prog));
 
     /* Run until BRK */
-    while (memory_read(mem, cpu_get_pc(cpu)) != 0x00) {
+    while (bus_read(bus, cpu_get_pc(cpu)) != 0x00) {
         cpu_step(cpu);
     }
 
     /* Should have found 3 differences */
-    CHECK_EQ(memory_read(mem, 0x0080), 3);
+    CHECK_EQ(bus_read(bus, 0x0080), 3);
     CHECK_EQ(cpu_get_x(cpu), 0xFF);  /* X wrapped to $FF */
 
     cpu_destroy(cpu);

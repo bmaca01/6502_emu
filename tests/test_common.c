@@ -21,10 +21,12 @@ void reset_test_state(void) {
 /* Setup a CPU with reset vector pointing to $0200 */
 CPU* setup_cpu(void) {
     Memory* mem = memory_create();
+    Bus* bus = bus_create();
+    bus_map_memory(bus, mem);
     /* Set reset vector to 0x0200 */
-    memory_write(mem, 0xFFFC, 0x00);
-    memory_write(mem, 0xFFFD, 0x02);
-    return cpu_create(mem);
+    bus_write(bus, 0xFFFC, 0x00);
+    bus_write(bus, 0xFFFD, 0x02);
+    return cpu_create(bus);
 }
 
 /* Check N and Z flags */

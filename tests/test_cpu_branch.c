@@ -1,5 +1,5 @@
 #include "test_common.h"
-#include "memory.h"
+#include "bus.h"
 
 /*
  * Conditional Branch Instruction Tests
@@ -18,11 +18,11 @@
 
 TEST(test_bcc_taken_forward) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_status(cpu, cpu_get_status(cpu) & ~FLAG_C);  /* Clear carry */
 
-    memory_write(mem, 0x0200, 0x90);  /* BCC */
-    memory_write(mem, 0x0201, 0x05);  /* offset +5 */
+    bus_write(bus, 0x0200, 0x90);  /* BCC */
+    bus_write(bus, 0x0201, 0x05);  /* offset +5 */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -33,11 +33,11 @@ TEST(test_bcc_taken_forward) {
 
 TEST(test_bcc_taken_backward) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_status(cpu, cpu_get_status(cpu) & ~FLAG_C);  /* Clear carry */
 
-    memory_write(mem, 0x0200, 0x90);  /* BCC */
-    memory_write(mem, 0x0201, 0xFC);  /* offset -4 (signed) */
+    bus_write(bus, 0x0200, 0x90);  /* BCC */
+    bus_write(bus, 0x0201, 0xFC);  /* offset -4 (signed) */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -48,11 +48,11 @@ TEST(test_bcc_taken_backward) {
 
 TEST(test_bcc_not_taken) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_status(cpu, cpu_get_status(cpu) | FLAG_C);  /* Set carry */
 
-    memory_write(mem, 0x0200, 0x90);  /* BCC */
-    memory_write(mem, 0x0201, 0x05);  /* offset +5 */
+    bus_write(bus, 0x0200, 0x90);  /* BCC */
+    bus_write(bus, 0x0201, 0x05);  /* offset +5 */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -63,13 +63,13 @@ TEST(test_bcc_not_taken) {
 
 TEST(test_bcc_page_cross) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_status(cpu, cpu_get_status(cpu) & ~FLAG_C);  /* Clear carry */
 
     /* Start near page boundary */
     cpu_set_pc(cpu, 0x02F0);
-    memory_write(mem, 0x02F0, 0x90);  /* BCC */
-    memory_write(mem, 0x02F1, 0x20);  /* offset +32 */
+    bus_write(bus, 0x02F0, 0x90);  /* BCC */
+    bus_write(bus, 0x02F1, 0x20);  /* offset +32 */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -82,11 +82,11 @@ TEST(test_bcc_page_cross) {
 
 TEST(test_bcs_taken_forward) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_status(cpu, cpu_get_status(cpu) | FLAG_C);  /* Set carry */
 
-    memory_write(mem, 0x0200, 0xB0);  /* BCS */
-    memory_write(mem, 0x0201, 0x05);  /* offset +5 */
+    bus_write(bus, 0x0200, 0xB0);  /* BCS */
+    bus_write(bus, 0x0201, 0x05);  /* offset +5 */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -97,11 +97,11 @@ TEST(test_bcs_taken_forward) {
 
 TEST(test_bcs_taken_backward) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_status(cpu, cpu_get_status(cpu) | FLAG_C);  /* Set carry */
 
-    memory_write(mem, 0x0200, 0xB0);  /* BCS */
-    memory_write(mem, 0x0201, 0xFC);  /* offset -4 (signed) */
+    bus_write(bus, 0x0200, 0xB0);  /* BCS */
+    bus_write(bus, 0x0201, 0xFC);  /* offset -4 (signed) */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -112,11 +112,11 @@ TEST(test_bcs_taken_backward) {
 
 TEST(test_bcs_not_taken) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_status(cpu, cpu_get_status(cpu) & ~FLAG_C);  /* Clear carry */
 
-    memory_write(mem, 0x0200, 0xB0);  /* BCS */
-    memory_write(mem, 0x0201, 0x05);  /* offset +5 */
+    bus_write(bus, 0x0200, 0xB0);  /* BCS */
+    bus_write(bus, 0x0201, 0x05);  /* offset +5 */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -127,12 +127,12 @@ TEST(test_bcs_not_taken) {
 
 TEST(test_bcs_page_cross) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_status(cpu, cpu_get_status(cpu) | FLAG_C);  /* Set carry */
 
     cpu_set_pc(cpu, 0x02F0);
-    memory_write(mem, 0x02F0, 0xB0);  /* BCS */
-    memory_write(mem, 0x02F1, 0x20);  /* offset +32 */
+    bus_write(bus, 0x02F0, 0xB0);  /* BCS */
+    bus_write(bus, 0x02F1, 0x20);  /* offset +32 */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -145,11 +145,11 @@ TEST(test_bcs_page_cross) {
 
 TEST(test_beq_taken_forward) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_status(cpu, cpu_get_status(cpu) | FLAG_Z);  /* Set zero flag */
 
-    memory_write(mem, 0x0200, 0xF0);  /* BEQ */
-    memory_write(mem, 0x0201, 0x05);  /* offset +5 */
+    bus_write(bus, 0x0200, 0xF0);  /* BEQ */
+    bus_write(bus, 0x0201, 0x05);  /* offset +5 */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -160,11 +160,11 @@ TEST(test_beq_taken_forward) {
 
 TEST(test_beq_taken_backward) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_status(cpu, cpu_get_status(cpu) | FLAG_Z);  /* Set zero flag */
 
-    memory_write(mem, 0x0200, 0xF0);  /* BEQ */
-    memory_write(mem, 0x0201, 0xFC);  /* offset -4 (signed) */
+    bus_write(bus, 0x0200, 0xF0);  /* BEQ */
+    bus_write(bus, 0x0201, 0xFC);  /* offset -4 (signed) */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -175,11 +175,11 @@ TEST(test_beq_taken_backward) {
 
 TEST(test_beq_not_taken) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_status(cpu, cpu_get_status(cpu) & ~FLAG_Z);  /* Clear zero flag */
 
-    memory_write(mem, 0x0200, 0xF0);  /* BEQ */
-    memory_write(mem, 0x0201, 0x05);  /* offset +5 */
+    bus_write(bus, 0x0200, 0xF0);  /* BEQ */
+    bus_write(bus, 0x0201, 0x05);  /* offset +5 */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -190,12 +190,12 @@ TEST(test_beq_not_taken) {
 
 TEST(test_beq_page_cross) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_status(cpu, cpu_get_status(cpu) | FLAG_Z);  /* Set zero flag */
 
     cpu_set_pc(cpu, 0x02F0);
-    memory_write(mem, 0x02F0, 0xF0);  /* BEQ */
-    memory_write(mem, 0x02F1, 0x20);  /* offset +32 */
+    bus_write(bus, 0x02F0, 0xF0);  /* BEQ */
+    bus_write(bus, 0x02F1, 0x20);  /* offset +32 */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -208,11 +208,11 @@ TEST(test_beq_page_cross) {
 
 TEST(test_bne_taken_forward) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_status(cpu, cpu_get_status(cpu) & ~FLAG_Z);  /* Clear zero flag */
 
-    memory_write(mem, 0x0200, 0xD0);  /* BNE */
-    memory_write(mem, 0x0201, 0x05);  /* offset +5 */
+    bus_write(bus, 0x0200, 0xD0);  /* BNE */
+    bus_write(bus, 0x0201, 0x05);  /* offset +5 */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -223,11 +223,11 @@ TEST(test_bne_taken_forward) {
 
 TEST(test_bne_taken_backward) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_status(cpu, cpu_get_status(cpu) & ~FLAG_Z);  /* Clear zero flag */
 
-    memory_write(mem, 0x0200, 0xD0);  /* BNE */
-    memory_write(mem, 0x0201, 0xFC);  /* offset -4 (signed) */
+    bus_write(bus, 0x0200, 0xD0);  /* BNE */
+    bus_write(bus, 0x0201, 0xFC);  /* offset -4 (signed) */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -238,11 +238,11 @@ TEST(test_bne_taken_backward) {
 
 TEST(test_bne_not_taken) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_status(cpu, cpu_get_status(cpu) | FLAG_Z);  /* Set zero flag */
 
-    memory_write(mem, 0x0200, 0xD0);  /* BNE */
-    memory_write(mem, 0x0201, 0x05);  /* offset +5 */
+    bus_write(bus, 0x0200, 0xD0);  /* BNE */
+    bus_write(bus, 0x0201, 0x05);  /* offset +5 */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -253,12 +253,12 @@ TEST(test_bne_not_taken) {
 
 TEST(test_bne_page_cross) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_status(cpu, cpu_get_status(cpu) & ~FLAG_Z);  /* Clear zero flag */
 
     cpu_set_pc(cpu, 0x02F0);
-    memory_write(mem, 0x02F0, 0xD0);  /* BNE */
-    memory_write(mem, 0x02F1, 0x20);  /* offset +32 */
+    bus_write(bus, 0x02F0, 0xD0);  /* BNE */
+    bus_write(bus, 0x02F1, 0x20);  /* offset +32 */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -271,11 +271,11 @@ TEST(test_bne_page_cross) {
 
 TEST(test_bmi_taken_forward) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_status(cpu, cpu_get_status(cpu) | FLAG_N);  /* Set negative flag */
 
-    memory_write(mem, 0x0200, 0x30);  /* BMI */
-    memory_write(mem, 0x0201, 0x05);  /* offset +5 */
+    bus_write(bus, 0x0200, 0x30);  /* BMI */
+    bus_write(bus, 0x0201, 0x05);  /* offset +5 */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -286,11 +286,11 @@ TEST(test_bmi_taken_forward) {
 
 TEST(test_bmi_taken_backward) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_status(cpu, cpu_get_status(cpu) | FLAG_N);  /* Set negative flag */
 
-    memory_write(mem, 0x0200, 0x30);  /* BMI */
-    memory_write(mem, 0x0201, 0xFC);  /* offset -4 (signed) */
+    bus_write(bus, 0x0200, 0x30);  /* BMI */
+    bus_write(bus, 0x0201, 0xFC);  /* offset -4 (signed) */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -301,11 +301,11 @@ TEST(test_bmi_taken_backward) {
 
 TEST(test_bmi_not_taken) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_status(cpu, cpu_get_status(cpu) & ~FLAG_N);  /* Clear negative flag */
 
-    memory_write(mem, 0x0200, 0x30);  /* BMI */
-    memory_write(mem, 0x0201, 0x05);  /* offset +5 */
+    bus_write(bus, 0x0200, 0x30);  /* BMI */
+    bus_write(bus, 0x0201, 0x05);  /* offset +5 */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -316,12 +316,12 @@ TEST(test_bmi_not_taken) {
 
 TEST(test_bmi_page_cross) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_status(cpu, cpu_get_status(cpu) | FLAG_N);  /* Set negative flag */
 
     cpu_set_pc(cpu, 0x02F0);
-    memory_write(mem, 0x02F0, 0x30);  /* BMI */
-    memory_write(mem, 0x02F1, 0x20);  /* offset +32 */
+    bus_write(bus, 0x02F0, 0x30);  /* BMI */
+    bus_write(bus, 0x02F1, 0x20);  /* offset +32 */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -334,11 +334,11 @@ TEST(test_bmi_page_cross) {
 
 TEST(test_bpl_taken_forward) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_status(cpu, cpu_get_status(cpu) & ~FLAG_N);  /* Clear negative flag */
 
-    memory_write(mem, 0x0200, 0x10);  /* BPL */
-    memory_write(mem, 0x0201, 0x05);  /* offset +5 */
+    bus_write(bus, 0x0200, 0x10);  /* BPL */
+    bus_write(bus, 0x0201, 0x05);  /* offset +5 */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -349,11 +349,11 @@ TEST(test_bpl_taken_forward) {
 
 TEST(test_bpl_taken_backward) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_status(cpu, cpu_get_status(cpu) & ~FLAG_N);  /* Clear negative flag */
 
-    memory_write(mem, 0x0200, 0x10);  /* BPL */
-    memory_write(mem, 0x0201, 0xFC);  /* offset -4 (signed) */
+    bus_write(bus, 0x0200, 0x10);  /* BPL */
+    bus_write(bus, 0x0201, 0xFC);  /* offset -4 (signed) */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -364,11 +364,11 @@ TEST(test_bpl_taken_backward) {
 
 TEST(test_bpl_not_taken) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_status(cpu, cpu_get_status(cpu) | FLAG_N);  /* Set negative flag */
 
-    memory_write(mem, 0x0200, 0x10);  /* BPL */
-    memory_write(mem, 0x0201, 0x05);  /* offset +5 */
+    bus_write(bus, 0x0200, 0x10);  /* BPL */
+    bus_write(bus, 0x0201, 0x05);  /* offset +5 */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -379,12 +379,12 @@ TEST(test_bpl_not_taken) {
 
 TEST(test_bpl_page_cross) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_status(cpu, cpu_get_status(cpu) & ~FLAG_N);  /* Clear negative flag */
 
     cpu_set_pc(cpu, 0x02F0);
-    memory_write(mem, 0x02F0, 0x10);  /* BPL */
-    memory_write(mem, 0x02F1, 0x20);  /* offset +32 */
+    bus_write(bus, 0x02F0, 0x10);  /* BPL */
+    bus_write(bus, 0x02F1, 0x20);  /* offset +32 */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -397,11 +397,11 @@ TEST(test_bpl_page_cross) {
 
 TEST(test_bvc_taken_forward) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_status(cpu, cpu_get_status(cpu) & ~FLAG_V);  /* Clear overflow flag */
 
-    memory_write(mem, 0x0200, 0x50);  /* BVC */
-    memory_write(mem, 0x0201, 0x05);  /* offset +5 */
+    bus_write(bus, 0x0200, 0x50);  /* BVC */
+    bus_write(bus, 0x0201, 0x05);  /* offset +5 */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -412,11 +412,11 @@ TEST(test_bvc_taken_forward) {
 
 TEST(test_bvc_taken_backward) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_status(cpu, cpu_get_status(cpu) & ~FLAG_V);  /* Clear overflow flag */
 
-    memory_write(mem, 0x0200, 0x50);  /* BVC */
-    memory_write(mem, 0x0201, 0xFC);  /* offset -4 (signed) */
+    bus_write(bus, 0x0200, 0x50);  /* BVC */
+    bus_write(bus, 0x0201, 0xFC);  /* offset -4 (signed) */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -427,11 +427,11 @@ TEST(test_bvc_taken_backward) {
 
 TEST(test_bvc_not_taken) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_status(cpu, cpu_get_status(cpu) | FLAG_V);  /* Set overflow flag */
 
-    memory_write(mem, 0x0200, 0x50);  /* BVC */
-    memory_write(mem, 0x0201, 0x05);  /* offset +5 */
+    bus_write(bus, 0x0200, 0x50);  /* BVC */
+    bus_write(bus, 0x0201, 0x05);  /* offset +5 */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -442,12 +442,12 @@ TEST(test_bvc_not_taken) {
 
 TEST(test_bvc_page_cross) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_status(cpu, cpu_get_status(cpu) & ~FLAG_V);  /* Clear overflow flag */
 
     cpu_set_pc(cpu, 0x02F0);
-    memory_write(mem, 0x02F0, 0x50);  /* BVC */
-    memory_write(mem, 0x02F1, 0x20);  /* offset +32 */
+    bus_write(bus, 0x02F0, 0x50);  /* BVC */
+    bus_write(bus, 0x02F1, 0x20);  /* offset +32 */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -460,11 +460,11 @@ TEST(test_bvc_page_cross) {
 
 TEST(test_bvs_taken_forward) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_status(cpu, cpu_get_status(cpu) | FLAG_V);  /* Set overflow flag */
 
-    memory_write(mem, 0x0200, 0x70);  /* BVS */
-    memory_write(mem, 0x0201, 0x05);  /* offset +5 */
+    bus_write(bus, 0x0200, 0x70);  /* BVS */
+    bus_write(bus, 0x0201, 0x05);  /* offset +5 */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -475,11 +475,11 @@ TEST(test_bvs_taken_forward) {
 
 TEST(test_bvs_taken_backward) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_status(cpu, cpu_get_status(cpu) | FLAG_V);  /* Set overflow flag */
 
-    memory_write(mem, 0x0200, 0x70);  /* BVS */
-    memory_write(mem, 0x0201, 0xFC);  /* offset -4 (signed) */
+    bus_write(bus, 0x0200, 0x70);  /* BVS */
+    bus_write(bus, 0x0201, 0xFC);  /* offset -4 (signed) */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -490,11 +490,11 @@ TEST(test_bvs_taken_backward) {
 
 TEST(test_bvs_not_taken) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_status(cpu, cpu_get_status(cpu) & ~FLAG_V);  /* Clear overflow flag */
 
-    memory_write(mem, 0x0200, 0x70);  /* BVS */
-    memory_write(mem, 0x0201, 0x05);  /* offset +5 */
+    bus_write(bus, 0x0200, 0x70);  /* BVS */
+    bus_write(bus, 0x0201, 0x05);  /* offset +5 */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -505,12 +505,12 @@ TEST(test_bvs_not_taken) {
 
 TEST(test_bvs_page_cross) {
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_status(cpu, cpu_get_status(cpu) | FLAG_V);  /* Set overflow flag */
 
     cpu_set_pc(cpu, 0x02F0);
-    memory_write(mem, 0x02F0, 0x70);  /* BVS */
-    memory_write(mem, 0x02F1, 0x20);  /* offset +32 */
+    bus_write(bus, 0x02F0, 0x70);  /* BVS */
+    bus_write(bus, 0x02F1, 0x20);  /* offset +32 */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -524,11 +524,11 @@ TEST(test_bvs_page_cross) {
 TEST(test_branch_offset_zero) {
     /* Branch to self - offset 0 means next instruction (PC+2), then +0 */
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_status(cpu, cpu_get_status(cpu) | FLAG_Z);  /* Set zero flag */
 
-    memory_write(mem, 0x0200, 0xF0);  /* BEQ */
-    memory_write(mem, 0x0201, 0x00);  /* offset 0 */
+    bus_write(bus, 0x0200, 0xF0);  /* BEQ */
+    bus_write(bus, 0x0201, 0x00);  /* offset 0 */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -540,11 +540,11 @@ TEST(test_branch_offset_zero) {
 TEST(test_branch_max_forward) {
     /* Maximum forward offset: +127 */
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_status(cpu, cpu_get_status(cpu) | FLAG_Z);  /* Set zero flag */
 
-    memory_write(mem, 0x0200, 0xF0);  /* BEQ */
-    memory_write(mem, 0x0201, 0x7F);  /* offset +127 */
+    bus_write(bus, 0x0200, 0xF0);  /* BEQ */
+    bus_write(bus, 0x0201, 0x7F);  /* offset +127 */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -556,12 +556,12 @@ TEST(test_branch_max_forward) {
 TEST(test_branch_max_backward) {
     /* Maximum backward offset: -128 */
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_status(cpu, cpu_get_status(cpu) | FLAG_Z);  /* Set zero flag */
 
     cpu_set_pc(cpu, 0x0300);
-    memory_write(mem, 0x0300, 0xF0);  /* BEQ */
-    memory_write(mem, 0x0301, 0x80);  /* offset -128 */
+    bus_write(bus, 0x0300, 0xF0);  /* BEQ */
+    bus_write(bus, 0x0301, 0x80);  /* offset -128 */
 
     uint8_t cycles = cpu_step(cpu);
 
@@ -573,12 +573,12 @@ TEST(test_branch_max_backward) {
 TEST(test_branch_no_page_cross_boundary) {
     /* Branch that stays within same page */
     CPU* cpu = setup_cpu();
-    Memory* mem = cpu_get_memory(cpu);
+    Bus* bus = cpu_get_bus(cpu);
     cpu_set_status(cpu, cpu_get_status(cpu) | FLAG_C);  /* Set carry */
 
     cpu_set_pc(cpu, 0x0250);
-    memory_write(mem, 0x0250, 0xB0);  /* BCS */
-    memory_write(mem, 0x0251, 0x10);  /* offset +16 */
+    bus_write(bus, 0x0250, 0xB0);  /* BCS */
+    bus_write(bus, 0x0251, 0x10);  /* offset +16 */
 
     uint8_t cycles = cpu_step(cpu);
 

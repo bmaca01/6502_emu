@@ -1,7 +1,7 @@
 #ifndef CPU_H_
 #define CPU_H_
 
-#include "memory.h"
+#include "bus.h"
 
 #define FLAG_C (1 << 0)  // Carry
 #define FLAG_Z (1 << 1)  // Zero
@@ -14,7 +14,7 @@
 
 typedef struct CPU CPU;
 
-CPU*    cpu_create(Memory* mem);
+CPU*    cpu_create(Bus* bus);
 void    cpu_destroy(CPU* cpu);
 void    cpu_reset(CPU* cpu);
 
@@ -38,6 +38,6 @@ void     cpu_set_sp(CPU* cpu, uint8_t val);
 void     cpu_set_pc(CPU* cpu, uint16_t val);
 void     cpu_set_status(CPU* cpu, uint8_t val);
 
-Memory*  cpu_get_memory(CPU* cpu);
+Bus*     cpu_get_bus(CPU* cpu);
 
 #endif
