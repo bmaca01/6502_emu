@@ -21,6 +21,14 @@ static void cpu_increment_cycles(addr_mode_t curr_am, opcode_t curr_oc,
 static uint8_t cpu_do_interrupt(CPU* cpu, uint16_t return_addr,
                                 uint16_t vector, bool is_brk);
 
+/* Update N and Z flags based on a result value */
+static inline void cpu_set_nz(uint8_t *status, uint8_t val) {
+    if (val == 0)   *status |= FLAG_Z;
+    else            *status &= ~FLAG_Z;
+    if (val & 0x80) *status |= FLAG_N;
+    else            *status &= ~FLAG_N;
+}
+
 struct CPU {
     uint8_t a;
     uint8_t x;
@@ -137,7 +145,7 @@ uint8_t cpu_step(CPU* cpu) {
 static void cpu_instruction_exec(CPU* cpu, uint8_t* curr_cycles,
                                  opcode_t opcode, addr_mode_t a_mode,
                                  uint16_t operand, uint16_t ea) {
-    uint8_t *src, *dst, val;
+    uint8_t *src, *dst, val, pcl, pch;
     switch (opcode) {
         /* ==== TRANSFER ==== */
         case LDA: case LDX: case LDY:
@@ -150,10 +158,7 @@ static void cpu_instruction_exec(CPU* cpu, uint8_t* curr_cycles,
 
             *dst = val;
 
-            if (*dst == 0)          cpu->status |= FLAG_Z;
-            else                    cpu->status &= ~FLAG_Z;
-            if ((*dst & 0x80)>>7)   cpu->status |= FLAG_N;
-            else                    cpu->status &= ~FLAG_N;
+            cpu_set_nz(&cpu->status, *dst);
             /* Cycle already counted in addressing mode resolution */
             break;
         case STA: case STX: case STY:
@@ -177,8 +182,7 @@ static void cpu_instruction_exec(CPU* cpu, uint8_t* curr_cycles,
             *dst = *src;
 
             if (opcode != TXS) {
-                if (*dst == 0)              cpu->status |= FLAG_Z;
-                if ((*dst & 0x80)>>7)       cpu->status |= FLAG_N;
+                cpu_set_nz(&cpu->status, *dst);
             }
             /* Transfer instructions are implied mode: +1 for internal operation */
             (*curr_cycles)++;
@@ -202,10 +206,7 @@ static void cpu_instruction_exec(CPU* cpu, uint8_t* curr_cycles,
 
             *dst = val;
             if (opcode == PLA) {
-                if (*dst == 0)          cpu->status |= FLAG_Z;
-                else                    cpu->status &= ~FLAG_Z;
-                if ((*dst & 0x80)>>7)   cpu->status |= FLAG_N;
-                else                    cpu->status &= ~FLAG_N;
+                cpu_set_nz(&cpu->status, *dst);
             }
             /* Discard FLAG_B */
             cpu->status &= ~FLAG_B;
@@ -218,19 +219,13 @@ static void cpu_instruction_exec(CPU* cpu, uint8_t* curr_cycles,
         case DEX: case DEY:
             dst = (opcode == DEX) ? &cpu->x : &cpu->y;
             (*dst)--;
-            if (*dst == 0)              cpu->status |= FLAG_Z;
-            else                        cpu->status &= ~FLAG_Z;
-            if ((*dst & 0x80)>>7)       cpu->status |= FLAG_N;
-            else                        cpu->status &= ~FLAG_N;
+            cpu_set_nz(&cpu->status, *dst);
             (*curr_cycles)++;
             break;
         case INX: case INY:
             dst = (opcode == INX) ? &cpu->x : &cpu->y;
             (*dst)++;
-            if (*dst == 0)              cpu->status |= FLAG_Z;
-            else                        cpu->status &= ~FLAG_Z;
-            if ((*dst & 0x80)>>7)       cpu->status |= FLAG_N;
-            else                        cpu->status &= ~FLAG_N;
+            cpu_set_nz(&cpu->status, *dst);
             (*curr_cycles)++;
             break;
         case INC: case DEC:
@@ -238,10 +233,7 @@ static void cpu_instruction_exec(CPU* cpu, uint8_t* curr_cycles,
             (*curr_cycles)++;
 
             bus_write(cpu->bus, ea, val);
-            if (val == 0)              cpu->status |= FLAG_Z;
-            else                       cpu->status &= ~FLAG_Z;
-            if ((val & 0x80)>>7)       cpu->status |= FLAG_N;
-            else                       cpu->status &= ~FLAG_N;
+            cpu_set_nz(&cpu->status, val);
             (*curr_cycles)++;
             break;
 
@@ -262,10 +254,7 @@ static void cpu_instruction_exec(CPU* cpu, uint8_t* curr_cycles,
             if (cpu->a < a_old)                         cpu->status |= FLAG_C;
             else if (opcode == SBC && cpu->a > a_old)   cpu->status &= ~FLAG_C; // Clear carry flag if negative overflow happens
             if (same_sign && (old_sign != new_sign))    cpu->status |= FLAG_V;
-            if (*dst == 0)                              cpu->status |= FLAG_Z;
-            else                                        cpu->status &= ~FLAG_Z;
-            if ((*dst & 0x80)>>7)                       cpu->status |= FLAG_N;
-            else                                        cpu->status &= ~FLAG_N;
+            cpu_set_nz(&cpu->status, *dst);
             break;
         }
 
@@ -278,8 +267,7 @@ static void cpu_instruction_exec(CPU* cpu, uint8_t* curr_cycles,
                    (opcode == EOR) ? cpu->a ^ val :
                                      cpu->a | val;
 
-            if (*dst == 0)                              cpu->status |= FLAG_Z;
-            if ((*dst & 0x80)>>7)                       cpu->status |= FLAG_N;
+            cpu_set_nz(&cpu->status, *dst);
             break;
 
         /* ==== SHIFT ==== */
@@ -308,10 +296,7 @@ static void cpu_instruction_exec(CPU* cpu, uint8_t* curr_cycles,
 
             if (carry_set)          cpu->status &= ~FLAG_C;
             if (will_set_carry)     cpu->status |= FLAG_C;
-            if (val == 0)           cpu->status |= FLAG_Z;
-            else                    cpu->status &= ~FLAG_Z;
-            if ((val & 0x80)>>7)    cpu->status |= FLAG_N;
-            else                    cpu->status &= ~FLAG_N;
+            cpu_set_nz(&cpu->status, val);
             (*curr_cycles)++;
             break;
         }
@@ -400,14 +385,12 @@ static void cpu_instruction_exec(CPU* cpu, uint8_t* curr_cycles,
             cpu->mar = (ea - 1);
             *curr_cycles += 2;
             break;
-        case RTS: {
-            uint8_t pcl, pch;   /* Should maybe move these elsewhere..? */
+        case RTS:
             pcl = bus_read(cpu->bus, (0x0100 | (++cpu->sp)));
             pch = bus_read(cpu->bus, (0x0100 | (++cpu->sp)));
             cpu->mar = ((uint16_t)pch)<<8 | pcl;
             *curr_cycles += 5;
             break;
-        }
 
         /* ==== INTERRUPTS ==== */
         case BRK:
@@ -416,16 +399,14 @@ static void cpu_instruction_exec(CPU* cpu, uint8_t* curr_cycles,
             *curr_cycles += 6;
             break;
 
-        case RTI: {
+        case RTI:
             /* Pull SR, then pull PC */
-            uint8_t pcl, pch;   /* Should maybe move these elsewhere..? */
             cpu->status = (bus_read(cpu->bus, (0x0100 | (++cpu->sp))) & ~(FLAG_B | FLAG_U));
             pcl = bus_read(cpu->bus, (0x0100 | (++cpu->sp)));
             pch = bus_read(cpu->bus, (0x0100 | (++cpu->sp)));
             cpu->mar = (((uint16_t)pch)<<8 | pcl) - 1;
             *curr_cycles += 5;
             break;
-        }
 
         /* ==== NOP ==== */
         case NOP:
@@ -590,7 +571,7 @@ static uint8_t cpu_do_interrupt(CPU* cpu, uint16_t return_addr,
     /* Push status: B set for BRK, clear for hardware interrupts; U always set */
     uint8_t pushed_status = cpu->status | FLAG_U;
     if (is_brk) pushed_status |= FLAG_B;
-    else         pushed_status &= ~FLAG_B;
+    else        pushed_status &= ~FLAG_B;
     bus_write(cpu->bus, (0x0100 | (cpu->sp--)), pushed_status);
 
     /* Set interrupt disable */

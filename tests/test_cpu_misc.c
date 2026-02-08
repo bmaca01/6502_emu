@@ -261,6 +261,21 @@ TEST(test_tsx_negative) {
     cpu_destroy(cpu);
 }
 
+/* TAX - Verify stale N/Z flags are cleared */
+TEST(test_tax_clears_stale_nz) {
+    CPU* cpu = setup_cpu();
+    Bus* bus = cpu_get_bus(cpu);
+    cpu_set_a(cpu, 0x42);  /* Positive non-zero */
+    cpu_set_status(cpu, cpu_get_status(cpu) | FLAG_N | FLAG_Z);  /* Pre-dirty both */
+    bus_write(bus, 0x0200, 0xAA);  /* TAX */
+
+    cpu_step(cpu);
+
+    CHECK(cpu_get_x(cpu) == 0x42);
+    check_flags(cpu, 0, 0);  /* Both N and Z should be cleared */
+    cpu_destroy(cpu);
+}
+
 TEST(test_txs) {
     CPU* cpu = setup_cpu();
     Bus* bus = cpu_get_bus(cpu);
@@ -803,6 +818,7 @@ int main(void) {
     RUN_TEST(test_tax_positive);
     RUN_TEST(test_tax_zero);
     RUN_TEST(test_tax_negative);
+    RUN_TEST(test_tax_clears_stale_nz);
     RUN_TEST(test_tay_positive);
     RUN_TEST(test_tay_zero);
     RUN_TEST(test_tay_negative);

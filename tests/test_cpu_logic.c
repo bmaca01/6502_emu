@@ -479,6 +479,38 @@ TEST(test_eor_ind_y) {
     cpu_destroy(cpu);
 }
 
+/* AND - Verify stale N/Z flags are cleared */
+TEST(test_and_clears_stale_nz) {
+    CPU* cpu = setup_cpu();
+    Bus* bus = cpu_get_bus(cpu);
+    cpu_set_a(cpu, 0xFF);
+    cpu_set_status(cpu, cpu_get_status(cpu) | FLAG_N | FLAG_Z);  /* Pre-dirty both */
+    bus_write(bus, 0x0200, encode_op(AND, IMM));
+    bus_write(bus, 0x0201, 0x0F);  /* Result: 0x0F (positive non-zero) */
+
+    cpu_step(cpu);
+
+    CHECK(cpu_get_a(cpu) == 0x0F);
+    check_flags(cpu, 0, 0);  /* Both N and Z should be cleared */
+    cpu_destroy(cpu);
+}
+
+/* ORA - Verify stale N/Z flags are cleared */
+TEST(test_ora_clears_stale_nz) {
+    CPU* cpu = setup_cpu();
+    Bus* bus = cpu_get_bus(cpu);
+    cpu_set_a(cpu, 0x00);
+    cpu_set_status(cpu, cpu_get_status(cpu) | FLAG_N | FLAG_Z);  /* Pre-dirty both */
+    bus_write(bus, 0x0200, encode_op(ORA, IMM));
+    bus_write(bus, 0x0201, 0x42);  /* Result: 0x42 (positive non-zero) */
+
+    cpu_step(cpu);
+
+    CHECK(cpu_get_a(cpu) == 0x42);
+    check_flags(cpu, 0, 0);  /* Both N and Z should be cleared */
+    cpu_destroy(cpu);
+}
+
 /* ============================ ASL Tests ==================================== */
 
 TEST(test_asl_acc) {
@@ -1293,6 +1325,7 @@ int main(void) {
     RUN_TEST(test_and_abs_y);
     RUN_TEST(test_and_ind_x);
     RUN_TEST(test_and_ind_y);
+    RUN_TEST(test_and_clears_stale_nz);
 
     printf("\n--- ORA Tests ---\n");
     RUN_TEST(test_ora_imm_positive);
@@ -1303,6 +1336,7 @@ int main(void) {
     RUN_TEST(test_ora_abs_x_page_cross);
     RUN_TEST(test_ora_ind_x);
     RUN_TEST(test_ora_ind_y);
+    RUN_TEST(test_ora_clears_stale_nz);
 
     printf("\n--- EOR Tests ---\n");
     RUN_TEST(test_eor_imm_positive);
